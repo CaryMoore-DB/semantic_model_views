@@ -1,71 +1,78 @@
 version: 1.1
 
-source: cmoore_user.tpch_semantic_views.orders
+source: cmoore_user.tpch_semantic_views.lineitem
 
 joins:
-  - name: customer
-    source: cmoore_user.tpch_semantic_views.customer
-    "on": source.o_custkey = customer.c_custkey
+  - name: orders
+    source: cmoore_user.tpch_semantic_views.orders
+    "on": source.l_orderkey = orders.o_orderkey
     joins:
-      - name: nation
-        source: cmoore_user.tpch_semantic_views.nation
-        "on": customer.c_nationkey = nation.n_nationkey
+      - name: customer
+        source: cmoore_user.tpch_semantic_views.customer
+        "on": orders.o_custkey = customer.c_custkey
         joins:
-          - name: region
-            source: cmoore_user.tpch_semantic_views.region
-            "on": nation.n_regionkey = region.r_regionkey
-  - name: lineitem
-    source: cmoore_user.tpch_semantic_views.lineitem
-    "on": source.o_orderkey = lineitem.l_orderkey
+          - name: nation
+            source: cmoore_user.tpch_semantic_views.nation
+            "on": customer.c_nationkey = nation.n_nationkey
+            joins:
+              - name: region
+                source: cmoore_user.tpch_semantic_views.region
+                "on": nation.n_regionkey = region.r_regionkey
+  - name: partsupp
+    source: cmoore_user.tpch_semantic_views.partsupp
+    "on": source.l_partkey = partsupp.ps_partkey and source.l_suppkey = partsupp.ps_suppkey
     joins:
-      - name: part_supplier
-        "on": lineitem.l_partkey = part_supplier.ps_partkey and lineitem.l_suppkey = part_supplier.ps_suppkey
+      - name: part
+        source: cmoore_user.tpch_semantic_views.part
+        "on": partsupp.ps_partkey = part.p_partkey
+      - name: supplier
+        source: cmoore_user.tpch_semantic_views.supplier
+        "on": partsupp.ps_suppkey = supplier.s_suppkey
         joins:
-        - name: part
-          source: cmoore_user.tpch_semantic_views.part
-          "on": part_supplier.ps_partkey = part.p_partkey
-        - name: supplier
-          source: cmoore_user.tpch_semantic_views.supplier
-          "on": part_supplier.ps_suppkey = supplier.s_suppkey
-          joins:
-            - name: nation
-              source: cmoore_user.tpch_semantic_views.nation
-              "on": supplier.s_nationkey = nation.n_nationkey
-              joins:
-                - name: region
-                  source: cmoore_user.tpch_semantic_views.region
-                  "on": nation.n_regionkey = region.r_regionkey
+          - name: nation
+            source: cmoore_user.tpch_semantic_views.nation
+            "on": supplier.s_nationkey = nation.n_nationkey
+            joins:
+              - name: region
+                source: cmoore_user.tpch_semantic_views.region
+                "on": nation.n_regionkey = region.r_regionkey
 
 dimensions:
   - name: order_clerk
-    expr: o_clerk
+    expr: orders.o_clerk
   - name: order_status
-    expr: o_orderstatus
+    expr: orders.o_orderstatus
   - name: order_date
-    expr: o_orderdate
+    expr: orders.o_orderdate
   - name: customer_name
-    expr: customer.c_name
+    expr: orders.customer.c_name
   - name: customer_nation
-    expr: customer.nation.n_name
+    expr: orders.customer.nation.n_name
   - name: customer_region
-    expr: customer.nation.region.r_name
+    expr: orders.customer.nation.region.r_name
   - name: part_name
-    expr: lineitem.part.p_name
+    expr: partsupp.part.p_name
   - name: part_type
-    expr: lineitem.part.p_type
+    expr: partsupp.part.p_type
   - name: supplier_name
-    expr: lineitem.supplier.s_name
+    expr: partsupp.supplier.s_name
   - name: supplier_nation
-    expr: lineitem.supplier.nation.n_name
+    expr: partsupp.supplier.nation.n_name
   - name: supplier_region
-    expr: lineitem.supplier.nation.region.r_name
+    expr: partsupp.supplier.nation.region.r_name
 
 measures:
   - name: order_count
-    expr: COUNT(*)
+    expr: COUNT(orders.o_orderkey)
   - name: total_price
-    expr: SUM(o_totalprice)
+    expr: SUM(orders.o_totalprice)
   - name: total_quantity
-    expr: SUM(lineitem.l_quantity)
+    expr: SUM(l_quantity)
   - name: total_extended_price
-    expr: SUM(lineitem.l_extendedprice)
+    expr: SUM(l_extendedprice)
+  - name: total_sales
+    expr: SUM(l_extendedprice * l_quantity)
+  - name: number_on_hand
+    expr: SUM(partsupp.ps_availqty)
+  - name: supplier_cost
+    expr: SUM(partsupp.ps_supplycost)
