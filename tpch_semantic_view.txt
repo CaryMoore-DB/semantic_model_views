@@ -40,39 +40,75 @@ joins:
 dimensions:
   - name: order_clerk
     expr: orders.o_clerk
+    comment: "The individual responsible for processing the order, providing insight\
+      \ into who managed the transaction."
   - name: order_status
     expr: orders.o_orderstatus
+    comment: "Indicates the current state of the order, such as pending, completed,\
+      \ or canceled, which is crucial for tracking order progress."
   - name: order_date
     expr: orders.o_orderdate
+    comment: "The date when the order was placed, essential for analyzing sales trends\
+      \ over time."
   - name: customer_name
     expr: orders.customer.c_name
+    comment: "The name of the customer who placed the order, useful for identifying\
+      \ customer preferences and behaviors."
   - name: customer_nation
     expr: orders.customer.nation.n_name
+    comment: "The country where the customer is located, which can help in understanding\
+      \ market demographics."
   - name: customer_region
     expr: orders.customer.nation.region.r_name
+    comment: "The specific region within the customer's nation, providing more granular\
+      \ insights into customer distribution."
   - name: part_name
     expr: partsupp.part.p_name
+    comment: "The name of the part ordered, which is important for inventory management\
+      \ and sales analysis."
   - name: part_type
     expr: partsupp.part.p_type
+    comment: "Categorizes the part into a specific type, aiding in inventory classification\
+      \ and sales reporting."
   - name: supplier_name
     expr: partsupp.supplier.s_name
+    comment: "The name of the supplier providing the part, useful for evaluating supplier\
+      \ performance and relationships."
   - name: supplier_nation
     expr: partsupp.supplier.nation.n_name
+    comment: "The country where the supplier is based, which can impact shipping times\
+      \ and costs."
   - name: supplier_region
     expr: partsupp.supplier.nation.region.r_name
+    comment: "The specific region of the supplier's location, providing additional\
+      \ context for logistics and supply chain management."
 
 measures:
   - name: order_count
     expr: COUNT(orders.o_orderkey)
+    comment: "The total number of orders placed, which can be used to assess sales\
+      \ volume and customer demand."
   - name: total_price
     expr: SUM(orders.o_totalprice)
+    comment: "The total monetary value of the order, reflecting the overall sales\
+      \ revenue generated from that transaction."
   - name: total_quantity
     expr: SUM(l_quantity)
+    comment: "The total number of items ordered, important for inventory tracking\
+      \ and sales forecasting."
   - name: total_extended_price
     expr: SUM(l_extendedprice)
+    comment: "The total price calculated by multiplying the quantity of items by their\
+      \ respective prices, providing a detailed view of sales revenue."
   - name: total_sales
     expr: SUM(l_extendedprice * l_quantity)
+    comment: "The cumulative sales amount across all orders, useful for financial\
+      \ analysis and reporting."
   - name: number_on_hand
     expr: SUM(partsupp.ps_availqty)
+    comment: "The current inventory level of the part, critical for managing stock\
+      \ and fulfilling future orders."
   - name: supplier_cost
     expr: SUM(partsupp.ps_supplycost)
+    comment: "The cost incurred from the supplier for the part, which is essential\
+      \ for calculating profit margins."
