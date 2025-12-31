@@ -1,0 +1,431 @@
+version: 1.1
+
+# Insurance Claims Analytics Semantic Model
+# Based on fact_claims with legal proceedings and dimensional hierarchies
+
+source: ${catalog}.${schema}.fact_claims
+
+joins:
+  - name: claim
+    source: ${catalog}.${schema}.dim_claim
+    "on": source.claim_key = claim.claim_key
+  - name: policy
+    source: ${catalog}.${schema}.dim_policy
+    "on": source.policy_key = policy.policy_key
+  - name: group
+    source: ${catalog}.${schema}.dim_group
+    "on": source.group_key = group.group_key
+  - name: risk
+    source: ${catalog}.${schema}.dim_risk
+    "on": source.risk_key = risk.risk_key
+  - name: attorney
+    source: ${catalog}.${schema}.dim_attorney
+    "on": source.attorney_key = attorney.attorney_key
+  - name: court
+    source: ${catalog}.${schema}.dim_court
+    "on": source.court_key = court.court_key
+  - name: outcome
+    source: ${catalog}.${schema}.dim_outcome
+    "on": source.outcome_key = outcome.outcome_key
+  - name: transaction_date
+    source: ${catalog}.${schema}.dim_date
+    "on": source.transaction_date_key = transaction_date.date_key
+  - name: claim_open_date
+    source: ${catalog}.${schema}.dim_date
+    "on": source.claim_open_date_key = claim_open_date.date_key
+
+dimensions:
+  # Time Dimensions
+  - name: transaction_date
+    expr: source.event_date
+    comment: "Date of claim transaction, essential for payment timing analysis and cash flow projections."
+  
+  - name: transaction_year
+    expr: transaction_date.year
+    comment: "Year of claim transaction, critical for annual loss development and calendar year reporting."
+  
+  - name: transaction_quarter
+    expr: transaction_date.fiscal_quarter
+    comment: "Fiscal quarter of transaction, important for quarterly financial close and trend analysis."
+  
+  - name: transaction_month
+    expr: transaction_date.month_name
+    comment: "Month of transaction, useful for payment pattern analysis and cash flow forecasting."
+  
+  - name: claim_open_year
+    expr: claim_open_date.year
+    comment: "Accident year / year claim opened, fundamental dimension for loss development triangles and reserving."
+  
+  - name: claim_open_quarter
+    expr: claim_open_date.fiscal_quarter
+    comment: "Quarter when claim opened, used for quarterly accident year cohort analysis."
+  
+  - name: claim_reported_date
+    expr: claim.claim_reported_date
+    comment: "Date claim was reported, important for reporting lag analysis and IBNR estimation."
+  
+  - name: days_claim_open
+    expr: source.days_claim_open
+    comment: "Number of days claim has been open, critical for claim duration analysis and settlement efficiency."
+  
+  # Claim Dimensions
+  - name: claim_number
+    expr: claim.company_claim_number
+    comment: "Unique claim identifier, essential for claim tracking and customer service."
+  
+  - name: claim_status
+    expr: claim.claim_status_code
+    comment: "Current status of claim (Open, Closed, etc.), fundamental for claim inventory management."
+  
+  - name: claim_description
+    expr: claim.claim_description
+    comment: "Description of loss event, useful for claim type categorization and trend analysis."
+  
+  - name: is_claim_closed
+    expr: claim.is_closed
+    comment: "Boolean indicator if claim is closed, critical for closed claim counts and settlement rate analysis."
+  
+  - name: is_claim_reopened
+    expr: claim.is_reopened
+    comment: "Flag for reopened claims, important for reopen rate tracking and claims handling quality."
+  
+  - name: reporting_lag_days
+    expr: claim.reporting_lag_days
+    comment: "Days between occurrence and reporting, used for IBNR development factors and lag analysis."
+  
+  # Catastrophe Dimensions
+  - name: is_catastrophe
+    expr: claim.is_catastrophe
+    comment: "Flag indicating catastrophe claim, critical for CAT loss aggregation and reinsurance recovery."
+  
+  - name: catastrophe_name
+    expr: claim.catastrophe_name
+    comment: "Name of catastrophe event, essential for event-level loss analysis and reinsurance claims."
+  
+  - name: catastrophe_type
+    expr: claim.catastrophe_type_code
+    comment: "Type of catastrophe (Hurricane, Tornado, etc.), important for peril analysis and exposure management."
+  
+  - name: occurrence_date
+    expr: claim.occurrence_begin_date
+    comment: "Date loss occurred, fundamental for accident date analysis and coverage determination."
+  
+  - name: occurrence_location
+    expr: claim.occurrence_location_name
+    comment: "Location where loss occurred, critical for geographic loss concentration analysis."
+  
+  - name: occurrence_state
+    expr: claim.occurrence_state_code
+    comment: "State where loss occurred, essential for state-level loss ratio and frequency analysis."
+  
+  # Policy Dimensions
+  - name: policy_number
+    expr: policy.policy_number
+    comment: "Policy associated with claim, necessary for claim-to-policy linkage and coverage verification."
+  
+  - name: product_name
+    expr: policy.product_name
+    comment: "Product under which claim was filed, critical for product loss ratio analysis."
+  
+  - name: line_of_business
+    expr: policy.line_of_business_name
+    comment: "Line of business of claim, fundamental for LOB profitability and reserving analysis."
+  
+  - name: line_of_business_group
+    expr: policy.line_of_business_group_name
+    comment: "High-level LOB grouping, used for segment-level performance reporting."
+  
+  - name: policy_state
+    expr: policy.state_code
+    comment: "State where policy issued, important for jurisdiction-based loss analysis."
+  
+  # Group/Customer Dimensions
+  - name: group_name
+    expr: group.grouping_name
+    comment: "Customer group name, useful for large account claim analysis and retention decisions."
+  
+  - name: group_type
+    expr: group.group_type
+    comment: "Type of customer group, important for market segment loss experience."
+  
+  - name: organization_name
+    expr: group.organization_name
+    comment: "Organization name for commercial claims, critical for account management and retention."
+  
+  # Risk Dimensions
+  - name: risk_category
+    expr: risk.risk_category
+    comment: "Category of insured object, fundamental for risk classification loss analysis."
+  
+  - name: vehicle_type
+    expr: risk.vehicle_type
+    comment: "Type of vehicle involved, essential for auto physical damage and liability analysis."
+  
+  - name: vehicle_make
+    expr: risk.vehicle_make_name
+    comment: "Vehicle manufacturer, important for loss cost by make and repair cost trends."
+  
+  - name: structure_type
+    expr: risk.structure_type
+    comment: "Type of structure damaged, critical for property loss classification."
+  
+  - name: risk_state
+    expr: risk.state_code
+    comment: "Location of insured property, essential for concentration risk and territory analysis."
+  
+  # Legal Dimensions
+  - name: has_litigation
+    expr: source.has_litigation
+    comment: "Flag for litigation involvement, critical for legal expense tracking and litigation rate analysis."
+  
+  - name: has_arbitration
+    expr: source.has_arbitration
+    comment: "Flag for arbitration involvement, important for alternative dispute resolution tracking."
+  
+  - name: attorney_name
+    expr: attorney.attorney_name
+    comment: "Name of attorney representing, useful for attorney performance and cost analysis."
+  
+  - name: law_firm_name
+    expr: attorney.law_firm_name
+    comment: "Law firm handling claim, important for panel counsel evaluation and cost management."
+  
+  - name: attorney_state
+    expr: attorney.state_code
+    comment: "State where attorney practices, relevant for jurisdiction-based legal cost analysis."
+  
+  - name: court_name
+    expr: court.legal_jurisdiction_name
+    comment: "Court jurisdiction, critical for venue-based outcome analysis and litigation strategy."
+  
+  - name: court_level
+    expr: court.court_level
+    comment: "Level of court (Federal, State, County), important for complexity and cost assessment."
+  
+  - name: outcome_type
+    expr: outcome.outcome_type
+    comment: "Type of outcome (Litigation, Arbitration), essential for resolution method effectiveness analysis."
+  
+  - name: outcome_result
+    expr: outcome.outcome_result
+    comment: "Result of legal proceeding, critical for win/loss analysis and litigation effectiveness."
+  
+  # Transaction Type Dimensions
+  - name: transaction_type
+    expr: source.transaction_type
+    comment: "Credit or Debit indicator, important for payment reversal and recovery tracking."
+  
+  - name: is_payment
+    expr: source.is_payment
+    comment: "Flag for payment transactions, fundamental for paid loss analysis."
+  
+  - name: is_reserve
+    expr: source.is_reserve
+    comment: "Flag for reserve transactions, critical for reserve development and adequacy analysis."
+  
+  - name: is_recovery
+    expr: source.is_recovery
+    comment: "Flag for recovery transactions, essential for subrogation and salvage effectiveness."
+  
+  - name: is_loss_transaction
+    expr: CASE WHEN source.is_loss_payment = 1 OR source.is_loss_reserve = 1 THEN 1 ELSE 0 END
+    comment: "Flag for loss transactions vs expense, important for pure loss ratio calculations."
+
+measures:
+  # Core Claim Amount Measures
+  - name: total_claims_amount
+    expr: SUM(source.total_claim_amount)
+    comment: "Total of all claim transactions including payments, reserves, and recoveries, comprehensive loss measure."
+  
+  - name: net_claims_amount
+    expr: SUM(source.net_claim_amount)
+    comment: "Net claim amount after credits and recoveries, most accurate measure of net incurred loss."
+  
+  - name: total_paid
+    expr: SUM(source.payment_amount)
+    comment: "Total amount paid on claims, fundamental metric for cash flow analysis and paid loss ratios."
+  
+  - name: total_reserved
+    expr: SUM(source.reserve_amount)
+    comment: "Total case reserves outstanding, critical for reserve adequacy and IBNR estimation."
+  
+  - name: total_incurred
+    expr: SUM(source.payment_amount + source.reserve_amount)
+    comment: "Total incurred losses (paid + reserved), the primary measure for loss ratio calculations and profitability."
+  
+  - name: total_recoveries
+    expr: SUM(source.recovery_amount)
+    comment: "Total amounts recovered through subrogation, salvage, and reinsurance, important for net loss calculations."
+  
+  # Loss vs Expense Breakdown
+  - name: loss_paid
+    expr: SUM(source.loss_payment_amount)
+    comment: "Pure loss payments, essential for loss-only ratio calculations and claim cost analysis."
+  
+  - name: expense_paid
+    expr: SUM(source.expense_payment_amount)
+    comment: "Claim expense payments (ALAE/ULAE), critical for expense ratio and claim handling cost analysis."
+  
+  - name: loss_reserved
+    expr: SUM(source.loss_reserve_amount)
+    comment: "Case reserves for indemnity, important for loss development and reserve adequacy testing."
+  
+  - name: expense_reserved
+    expr: SUM(source.expense_reserve_amount)
+    comment: "Reserves for allocated loss adjustment expenses, essential for total expense projections."
+  
+  - name: total_loss_incurred
+    expr: SUM(source.loss_payment_amount + source.loss_reserve_amount)
+    comment: "Total incurred indemnity losses, fundamental for pure loss ratio calculations."
+  
+  - name: total_expense_incurred
+    expr: SUM(source.expense_payment_amount + source.expense_reserve_amount)
+    comment: "Total incurred claim expenses, critical for expense ratio and LAE analysis."
+  
+  # Direct, Assumed, Ceded
+  - name: direct_claims
+    expr: SUM(source.direct_claim_amount)
+    comment: "Direct claim amounts before reinsurance, important for gross loss reporting."
+  
+  - name: assumed_claims
+    expr: SUM(source.assumed_claim_amount)
+    comment: "Assumed reinsurance claim amounts, critical for reinsurance portfolio loss analysis."
+  
+  - name: ceded_claims
+    expr: SUM(source.ceded_claim_amount)
+    comment: "Ceded reinsurance recoveries, essential for calculating net retained losses and reinsurance effectiveness."
+  
+  - name: net_retained_losses
+    expr: SUM(source.direct_claim_amount - source.ceded_claim_amount)
+    comment: "Net losses retained after reinsurance, key measure for actual retained loss and capital adequacy."
+  
+  # Claim Count Measures
+  - name: claim_count
+    expr: COUNT(DISTINCT source.claim_key)
+    comment: "Number of distinct claims, fundamental frequency metric for loss ratio analysis."
+  
+  - name: open_claim_count
+    expr: COUNT(DISTINCT CASE WHEN claim.is_open = 1 THEN source.claim_key END)
+    comment: "Count of currently open claims, critical for claim inventory management and staffing."
+  
+  - name: closed_claim_count
+    expr: COUNT(DISTINCT CASE WHEN claim.is_closed = 1 THEN source.claim_key END)
+    comment: "Count of closed claims, important for closure rate and settlement efficiency metrics."
+  
+  - name: reopened_claim_count
+    expr: COUNT(DISTINCT CASE WHEN claim.is_reopened = 1 THEN source.claim_key END)
+    comment: "Count of reopened claims, useful for quality control and initial reserve adequacy assessment."
+  
+  - name: catastrophe_claim_count
+    expr: COUNT(DISTINCT CASE WHEN claim.is_catastrophe = 1 THEN source.claim_key END)
+    comment: "Number of catastrophe-related claims, essential for CAT event aggregation and reinsurance recovery."
+  
+  - name: litigation_claim_count
+    expr: COUNT(DISTINCT CASE WHEN source.has_litigation = 1 THEN source.claim_key END)
+    comment: "Number of claims in litigation, critical for litigation rate tracking and legal expense planning."
+  
+  - name: transaction_count
+    expr: COUNT(source.claim_transaction_key)
+    comment: "Total number of claim transactions, useful for transaction volume and processing efficiency."
+  
+  # Average Claim Measures
+  - name: average_claim_amount
+    expr: SUM(source.total_claim_amount) / COUNT(DISTINCT source.claim_key)
+    comment: "Average amount per claim, key severity metric for pricing and reserving."
+  
+  - name: average_paid_per_claim
+    expr: SUM(source.payment_amount) / NULLIF(COUNT(DISTINCT CASE WHEN source.is_payment = 1 THEN source.claim_key END), 0)
+    comment: "Average payment per closed claim, important severity metric for settlement patterns."
+  
+  - name: average_reserve_per_claim
+    expr: SUM(source.reserve_amount) / NULLIF(COUNT(DISTINCT CASE WHEN source.is_reserve = 1 THEN source.claim_key END), 0)
+    comment: "Average case reserve per open claim, critical for reserve adequacy and severity trending."
+  
+  - name: average_incurred_per_claim
+    expr: SUM(source.payment_amount + source.reserve_amount) / COUNT(DISTINCT source.claim_key)
+    comment: "Average incurred loss per claim, primary severity metric for loss development and pricing."
+  
+  - name: average_days_to_close
+    expr: AVG(CASE WHEN claim.is_closed = 1 THEN source.days_claim_open END)
+    comment: "Average days to close claims, key efficiency metric for claims handling and customer service."
+  
+  # Insurance Industry Ratios and Metrics
+  - name: loss_ratio
+    expr: (SUM(source.loss_payment_amount) / NULLIF((SELECT SUM(net_premium_amount) FROM ${catalog}.${schema}.fact_premium_payments WHERE policy_key = source.policy_key), 0)) * 100
+    comment: "Loss ratio percentage (losses / premium), the fundamental profitability metric in insurance, target typically 60-70%."
+  
+  - name: expense_ratio
+    expr: (SUM(source.expense_payment_amount) / NULLIF((SELECT SUM(net_premium_amount) FROM ${catalog}.${schema}.fact_premium_payments WHERE policy_key = source.policy_key), 0)) * 100
+    comment: "Expense ratio percentage (expenses / premium), measures claim handling efficiency, typically 10-20%."
+  
+  - name: combined_ratio
+    expr: ((SUM(source.loss_payment_amount + source.expense_payment_amount)) / NULLIF((SELECT SUM(net_premium_amount) FROM ${catalog}.${schema}.fact_premium_payments WHERE policy_key = source.policy_key), 0)) * 100
+    comment: "Combined ratio (loss ratio + expense ratio), key underwriting profitability metric, <100% is profitable."
+  
+  - name: incurred_loss_ratio
+    expr: (SUM(source.loss_payment_amount + source.loss_reserve_amount) / NULLIF((SELECT SUM(net_premium_amount) FROM ${catalog}.${schema}.fact_premium_payments WHERE policy_key = source.policy_key), 0)) * 100
+    comment: "Incurred loss ratio including reserves, more current view of loss experience for recent accident years."
+  
+  - name: claim_frequency
+    expr: COUNT(DISTINCT source.claim_key) / NULLIF((SELECT SUM(earning_period_days / 365.0) FROM ${catalog}.${schema}.fact_premium_payments WHERE policy_key = source.policy_key), 0)
+    comment: "Claims per exposure unit (policy year), fundamental frequency metric for pricing and risk selection."
+  
+  - name: claim_severity
+    expr: SUM(source.payment_amount) / NULLIF(COUNT(DISTINCT CASE WHEN source.is_payment = 1 THEN source.claim_key END), 0)
+    comment: "Average severity per closed claim, key pricing metric, frequency × severity = loss cost."
+  
+  - name: pure_premium
+    expr: (SUM(source.loss_payment_amount) / NULLIF((SELECT SUM(earning_period_days / 365.0) FROM ${catalog}.${schema}.fact_premium_payments WHERE policy_key = source.policy_key), 0))
+    comment: "Expected loss cost per exposure unit, fundamental rate calculation component, also called loss cost."
+  
+  - name: reserve_to_paid_ratio
+    expr: SUM(source.reserve_amount) / NULLIF(SUM(source.payment_amount), 0)
+    comment: "Ratio of reserves to paid, indicates reserve adequacy and claim maturity, lower ratio = more mature claims."
+  
+  - name: closure_rate
+    expr: COUNT(DISTINCT CASE WHEN claim.is_closed = 1 THEN source.claim_key END) / NULLIF(COUNT(DISTINCT source.claim_key), 0)
+    comment: "Percentage of claims closed, efficiency metric for claims handling performance."
+  
+  - name: reopen_rate
+    expr: COUNT(DISTINCT CASE WHEN claim.is_reopened = 1 THEN source.claim_key END) / NULLIF(COUNT(DISTINCT CASE WHEN claim.is_closed = 1 THEN source.claim_key END), 0)
+    comment: "Percentage of closed claims that reopened, quality metric for initial reserve adequacy and investigation."
+  
+  - name: litigation_rate
+    expr: COUNT(DISTINCT CASE WHEN source.has_litigation = 1 THEN source.claim_key END) / NULLIF(COUNT(DISTINCT source.claim_key), 0)
+    comment: "Percentage of claims in litigation, cost and settlement time indicator, higher rate increases LAE."
+  
+  - name: catastrophe_loss_percentage
+    expr: SUM(CASE WHEN claim.is_catastrophe = 1 THEN source.total_claim_amount ELSE 0 END) / NULLIF(SUM(source.total_claim_amount), 0)
+    comment: "Percentage of total losses from catastrophes, volatility measure important for reinsurance and capital planning."
+  
+  - name: recovery_ratio
+    expr: SUM(source.recovery_amount) / NULLIF(SUM(source.payment_amount), 0)
+    comment: "Ratio of recoveries to payments, measures effectiveness of subrogation and salvage programs."
+  
+  - name: ceded_loss_ratio
+    expr: SUM(source.ceded_claim_amount) / NULLIF(SUM(source.direct_claim_amount), 0)
+    comment: "Percentage of losses ceded to reinsurance, measures reinsurance program effectiveness and leverage."
+  
+  - name: retention_on_losses
+    expr: (SUM(source.direct_claim_amount - source.ceded_claim_amount)) / NULLIF(SUM(source.direct_claim_amount), 0)
+    comment: "Percentage of losses retained net of reinsurance, key capital adequacy and retention strategy metric."
+  
+  - name: legal_expense_ratio
+    expr: SUM(CASE WHEN source.has_litigation = 1 OR source.has_arbitration = 1 THEN source.expense_payment_amount ELSE 0 END) / NULLIF(SUM(source.total_claim_amount), 0)
+    comment: "Legal expenses as percentage of total claims, measures cost of litigation and legal program efficiency."
+  
+  - name: settlement_offer_ratio
+    expr: AVG(NULLIF(source.settlement_offer_amount, 0)) / NULLIF(AVG(source.payment_amount), 0)
+    comment: "Ratio of settlement offers to actual payments, negotiation effectiveness metric."
+  
+  - name: risk_weighted_losses
+    expr: SUM(source.net_claim_amount * COALESCE((SELECT avg_limit FROM ${catalog}.${schema}.fact_premium_payments WHERE policy_key = source.policy_key), 100000) / 100000)
+    comment: "Losses weighted by policy limits, provides risk-adjusted loss measure for exposure analysis and pricing."
+  
+  - name: loss_per_thousand_exposure
+    expr: (SUM(source.loss_payment_amount) / NULLIF((SELECT SUM(avg_limit) FROM ${catalog}.${schema}.fact_premium_payments WHERE policy_key = source.policy_key), 0)) * 1000
+    comment: "Loss per thousand dollars of exposure, standard metric for loss cost comparison across different limit profiles."
+  
+  - name: incurred_but_not_reported_indicator
+    expr: SUM(CASE WHEN DATEDIFF(claim.claim_reported_date, claim.claim_open_date) > 90 THEN source.total_claim_amount ELSE 0 END) / NULLIF(SUM(source.total_claim_amount), 0)
+    comment: "Percentage of late-reported claims, indicator for IBNR reserve adequacy and reporting patterns."

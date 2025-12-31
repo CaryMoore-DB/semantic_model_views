@@ -1,0 +1,288 @@
+version: 1.1
+
+# Insurance Premium Analytics Semantic Model
+# Based on fact_premium_payments with dimensional hierarchies
+
+source: ${catalog}.${schema}.fact_premium_payments
+
+joins:
+  - name: policy
+    source: ${catalog}.${schema}.dim_policy
+    "on": source.policy_key = policy.policy_key
+  - name: group
+    source: ${catalog}.${schema}.dim_group
+    "on": source.group_key = group.group_key
+  - name: risk
+    source: ${catalog}.${schema}.dim_risk
+    "on": source.risk_key = risk.risk_key
+  - name: begin_date
+    source: ${catalog}.${schema}.dim_date
+    "on": source.begin_date_key = begin_date.date_key
+  - name: end_date
+    source: ${catalog}.${schema}.dim_date
+    "on": source.end_date_key = end_date.date_key
+
+dimensions:
+  # Time Dimensions
+  - name: earning_begin_date
+    expr: source.earning_begin_date
+    comment: "The date when premium earning period begins, essential for earned premium calculations and trend analysis."
+  
+  - name: earning_begin_year
+    expr: begin_date.year
+    comment: "Year when premium earning begins, used for annual premium revenue analysis and year-over-year comparisons."
+  
+  - name: earning_begin_quarter
+    expr: begin_date.fiscal_quarter
+    comment: "Fiscal quarter of earning period start, important for quarterly financial reporting and seasonality analysis."
+  
+  - name: earning_begin_month
+    expr: begin_date.month_name
+    comment: "Month name of earning period start, useful for monthly revenue tracking and seasonal patterns."
+  
+  - name: earning_period_days
+    expr: source.earning_period_days
+    comment: "Number of days in the earning period, used to calculate daily premium rates and proration."
+  
+  # Policy Dimensions
+  - name: policy_number
+    expr: policy.policy_number
+    comment: "Unique policy identifier for tracking individual policy performance and customer inquiries."
+  
+  - name: policy_status
+    expr: policy.status_code
+    comment: "Current policy status (Active, Expired, Cancelled), critical for active policy counts and retention analysis."
+  
+  - name: product_name
+    expr: policy.product_name
+    comment: "Insurance product name, fundamental for product line profitability and portfolio mix analysis."
+  
+  - name: line_of_business
+    expr: policy.line_of_business_name
+    comment: "Line of business classification (Personal Auto, Homeowners, etc.), essential for LOB performance analysis."
+  
+  - name: line_of_business_group
+    expr: policy.line_of_business_group_name
+    comment: "High-level LOB grouping (Personal Lines, Commercial Lines), used for strategic business segment analysis."
+  
+  - name: insurance_class
+    expr: policy.insurance_class_name
+    comment: "Insurance classification, important for regulatory reporting and market segmentation."
+  
+  - name: policy_state
+    expr: policy.state_code
+    comment: "State where policy is issued, critical for geographic analysis and state-level regulatory compliance."
+  
+  - name: policy_state_name
+    expr: policy.state_name
+    comment: "Full state name for reporting and geographic market analysis."
+  
+  - name: policy_term_days
+    expr: policy.policy_term_days
+    comment: "Length of policy term in days, useful for term length analysis and renewal timing."
+  
+  - name: policy_is_active
+    expr: policy.is_active
+    comment: "Boolean indicator of active policy status, used for in-force policy counts and exposure calculations."
+  
+  # Group/Customer Dimensions
+  - name: group_name
+    expr: group.grouping_name
+    comment: "Name of the customer group or household, useful for group policy analysis and customer segmentation."
+  
+  - name: group_type
+    expr: group.group_type
+    comment: "Type of group (Household, Organization, Professional Group), important for market segment analysis."
+  
+  - name: organization_name
+    expr: group.organization_name
+    comment: "Name of organization for commercial policies, essential for commercial account management."
+  
+  - name: industry_type
+    expr: group.industry_type_code
+    comment: "Industry classification for commercial accounts, critical for industry-specific risk pricing and analysis."
+  
+  # Risk/Insurable Object Dimensions
+  - name: risk_category
+    expr: risk.risk_category
+    comment: "Category of insured object (Vehicle, Structure, etc.), fundamental for risk classification and pricing."
+  
+  - name: vehicle_type
+    expr: risk.vehicle_type
+    comment: "Specific vehicle type (Automobile, Truck, Motorcycle, etc.), important for auto insurance rating and analysis."
+  
+  - name: vehicle_make
+    expr: risk.vehicle_make_name
+    comment: "Vehicle manufacturer, used for loss cost analysis by make and repair cost estimation."
+  
+  - name: vehicle_model_year
+    expr: risk.vehicle_model_year
+    comment: "Model year of vehicle, critical for depreciation calculations and age-based rating."
+  
+  - name: structure_type
+    expr: risk.structure_type
+    comment: "Type of insured structure (Commercial, Residential), important for property insurance classification."
+  
+  - name: risk_state
+    expr: risk.state_code
+    comment: "State where insured property is located, essential for geographic risk exposure analysis."
+  
+  - name: risk_location
+    expr: risk.municipality_name
+    comment: "City/municipality of insured property, useful for concentration risk and territory analysis."
+  
+  # Coverage Dimensions
+  - name: coverage_description
+    expr: source.coverage_description
+    comment: "Description of coverage provided, important for coverage mix analysis and product design."
+  
+  - name: average_deductible
+    expr: source.avg_deductible
+    comment: "Average deductible amount for the coverage, used for deductible strategy analysis."
+  
+  - name: average_limit
+    expr: source.avg_limit
+    comment: "Average coverage limit, critical for exposure management and reinsurance planning."
+  
+  # Transaction Type Dimensions
+  - name: transaction_type
+    expr: source.transaction_type
+    comment: "Credit or Debit indicator, essential for understanding premium adjustments and endorsements."
+  
+  - name: is_premium
+    expr: source.is_premium
+    comment: "Flag indicating pure premium (vs tax/fee), used to isolate base premium amounts."
+  
+  - name: is_tax
+    expr: source.is_tax
+    comment: "Flag for tax amounts, important for tax remittance and regulatory reporting."
+  
+  - name: is_direct_business
+    expr: source.is_direct
+    comment: "Indicator of direct vs assumed business, critical for reinsurance accounting."
+  
+  - name: is_ceded_business
+    expr: source.is_ceded
+    comment: "Flag for ceded reinsurance premium, essential for reinsurance recovery calculations."
+
+measures:
+  # Core Premium Measures
+  - name: total_premium
+    expr: SUM(source.premium_amount)
+    comment: "Total premium amount including all components (premium, tax, fees), the primary revenue measure."
+  
+  - name: net_premium
+    expr: SUM(source.net_premium_amount)
+    comment: "Net premium after credits and debits, the most accurate measure of earned premium revenue."
+  
+  - name: earned_premium
+    expr: SUM(CASE WHEN source.is_premium = 1 THEN source.premium_only_amount ELSE 0 END)
+    comment: "Pure earned premium excluding taxes and fees, used for loss ratio calculations and profitability analysis."
+  
+  - name: written_premium
+    expr: SUM(CASE WHEN source.transaction_type = 'Debit' THEN source.premium_only_amount ELSE 0 END)
+    comment: "Written premium (new business and endorsements), key metric for production and growth analysis."
+  
+  - name: direct_premium
+    expr: SUM(source.direct_premium_amount)
+    comment: "Direct premium before reinsurance, important for gross premium production reporting."
+  
+  - name: assumed_premium
+    expr: SUM(source.assumed_premium_amount)
+    comment: "Assumed reinsurance premium, critical for reinsurance portfolio analysis."
+  
+  - name: ceded_premium
+    expr: SUM(source.ceded_premium_amount)
+    comment: "Ceded reinsurance premium, essential for calculating net retained premium and reinsurance costs."
+  
+  - name: net_retained_premium
+    expr: SUM(source.direct_premium_amount - source.ceded_premium_amount)
+    comment: "Net premium retained after reinsurance cessions, key measure of actual retained risk and revenue."
+  
+  # Tax and Fee Measures
+  - name: total_tax
+    expr: SUM(source.tax_amount)
+    comment: "Total tax collected on premiums, required for tax remittance and compliance reporting."
+  
+  - name: total_surcharges
+    expr: SUM(source.surcharge_amount)
+    comment: "Total surcharges collected, important for fee income and regulatory assessment tracking."
+  
+  - name: total_fees
+    expr: SUM(source.fee_amount)
+    comment: "Total policy fees collected, used for fee income analysis and pricing strategy."
+  
+  # Policy Count Measures
+  - name: policy_count
+    expr: COUNT(DISTINCT source.policy_key)
+    comment: "Number of distinct policies with premium transactions, fundamental for policy count reporting and market share."
+  
+  - name: active_policy_count
+    expr: COUNT(DISTINCT CASE WHEN policy.is_active = 1 THEN source.policy_key END)
+    comment: "Count of currently active policies, critical for in-force exposure and policy retention metrics."
+  
+  - name: transaction_count
+    expr: COUNT(source.premium_payment_key)
+    comment: "Total number of premium transactions, useful for transaction volume and endorsement frequency analysis."
+  
+  # Average Premium Measures
+  - name: average_premium_per_policy
+    expr: SUM(source.net_premium_amount) / COUNT(DISTINCT source.policy_key)
+    comment: "Average premium per policy, key metric for pricing adequacy and premium benchmarking."
+  
+  - name: average_written_premium
+    expr: SUM(CASE WHEN source.transaction_type = 'Debit' THEN source.premium_only_amount ELSE 0 END) / COUNT(DISTINCT source.policy_key)
+    comment: "Average written premium per policy, important for production efficiency and pricing strategy."
+  
+  # Insurance Industry Metrics
+  - name: risk_weighted_premium
+    expr: SUM(source.net_premium_amount * COALESCE(source.avg_limit, 100000) / 100000)
+    comment: "Premium weighted by coverage limits, provides risk-adjusted premium measure for exposure-based analysis and pricing."
+  
+  - name: exposure_units
+    expr: SUM(source.earning_period_days / 365.0)
+    comment: "Policy years of exposure, fundamental measure for calculating rates on exposure and loss cost per exposure."
+  
+  - name: premium_per_exposure_unit
+    expr: SUM(source.net_premium_amount) / SUM(source.earning_period_days / 365.0)
+    comment: "Premium per policy year of exposure, critical for rate level monitoring and competitive analysis."
+  
+  - name: written_to_earned_ratio
+    expr: SUM(CASE WHEN source.transaction_type = 'Debit' THEN source.premium_only_amount ELSE 0 END) / NULLIF(SUM(CASE WHEN source.is_premium = 1 THEN source.premium_only_amount ELSE 0 END), 0)
+    comment: "Ratio of written to earned premium, indicates premium growth rate and changes in unearned premium reserve."
+  
+  - name: retention_ratio
+    expr: SUM(source.direct_premium_amount - source.ceded_premium_amount) / NULLIF(SUM(source.direct_premium_amount), 0)
+    comment: "Percentage of premium retained after reinsurance, key metric for retention strategy and capital efficiency."
+  
+  - name: average_deductible_amount
+    expr: AVG(source.avg_deductible)
+    comment: "Average deductible across policies, important for understanding deductible mix and impact on claim frequency."
+  
+  - name: average_limit_amount
+    expr: AVG(source.avg_limit)
+    comment: "Average coverage limit across policies, critical for exposure management and catastrophe modeling."
+  
+  - name: limit_to_premium_ratio
+    expr: SUM(COALESCE(source.avg_limit, 0)) / NULLIF(SUM(source.net_premium_amount), 0)
+    comment: "Ratio of coverage limits to premium, indicates pricing adequacy relative to exposure and leverage."
+  
+  - name: tax_rate
+    expr: SUM(source.tax_amount) / NULLIF(SUM(source.premium_only_amount), 0)
+    comment: "Effective tax rate on premiums, used for tax planning and competitive pricing including taxes."
+  
+  - name: premium_per_thousand_limit
+    expr: (SUM(source.net_premium_amount) / NULLIF(SUM(source.avg_limit), 0)) * 1000
+    comment: "Premium rate per thousand dollars of coverage, standard insurance rate metric for pricing comparison."
+  
+  - name: composite_rate
+    expr: SUM(source.net_premium_amount) / NULLIF(SUM(source.earning_period_days), 0) * 365
+    comment: "Annual composite rate, provides annualized premium rate useful for rate change analysis."
+  
+  - name: geographic_concentration_premium
+    expr: SUM(source.net_premium_amount)
+    comment: "Premium concentration by geographic dimension, critical for catastrophe exposure and concentration risk management."
+  
+  - name: product_mix_percentage
+    expr: SUM(source.net_premium_amount) / SUM(SUM(source.net_premium_amount)) OVER ()
+    comment: "Percentage of total premium by product/dimension, essential for product mix analysis and strategic planning."
