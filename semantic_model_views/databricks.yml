@@ -1,0 +1,47 @@
+# This is a Databricks asset bundle definition for semantic_model_views.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: semantic_model_views
+  uuid: 39026f3f-7993-4b41-b757-ddd58bece41d
+
+include:
+  - resources/*.yml
+  - resources/*/*.yml
+
+# Variable declarations. These variables are assigned in the dev/prod targets below.
+variables:
+  warehouse_id:
+    description: The warehouse to use
+  catalog:
+    description: The catalog to use
+  schema:
+    description: The schema to use
+
+targets:
+  dev:
+    # The default target uses 'mode: development' to create a development copy.
+    # - Deployed resources get prefixed with '[dev my_user_name]'
+    # - Any job schedules and triggers are paused by default.
+    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
+    mode: development
+    default: true
+    workspace:
+      host: https://e2-demo-field-eng.cloud.databricks.com
+    variables:
+      warehouse_id: 03560442e95cb440
+      catalog: main
+      schema: ${workspace.current_user.short_name}
+
+  prod:
+    mode: production
+    workspace:
+      host: https://e2-demo-field-eng.cloud.databricks.com
+      # We explicitly deploy to /Workspace/Users/cary.moore@databricks.com to make sure we only have a single copy.
+      root_path: /Workspace/Users/cary.moore@databricks.com/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      warehouse_id: 03560442e95cb440
+      catalog: main
+      schema: default
+    permissions:
+      - user_name: cary.moore@databricks.com
+        level: CAN_MANAGE
