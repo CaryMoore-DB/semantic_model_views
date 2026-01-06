@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Delta Live Tables Pipeline - Outcome Dimension (SCD Type 2)
 """

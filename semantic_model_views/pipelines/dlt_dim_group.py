@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Delta Live Tables Pipeline - Group Dimension (SCD Type 2)
 Hierarchy: Group (1:Many) -> Policy (1:Many) -> Risk

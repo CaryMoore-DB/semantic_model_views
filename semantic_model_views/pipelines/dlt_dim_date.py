@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Delta Live Tables Pipeline - Date Dimension
 Static dimension - no SCD Type 2 needed

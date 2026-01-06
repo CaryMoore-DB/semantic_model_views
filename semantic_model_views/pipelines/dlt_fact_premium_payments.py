@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Delta Live Tables Pipeline - Premium Payments Fact Table
 Fact tables reference dimension surrogate keys for SCD Type 2 support

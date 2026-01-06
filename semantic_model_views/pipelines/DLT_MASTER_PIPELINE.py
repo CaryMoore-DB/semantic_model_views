@@ -1,6 +1,5 @@
-# Insurance Analytics - Delta Live Tables Pipeline Configuration
-
 # Databricks notebook source
+# Insurance Analytics - Delta Live Tables Pipeline Configuration
 # MAGIC %md
 # MAGIC # Insurance Analytics - Complete DLT Pipeline
 # MAGIC 
