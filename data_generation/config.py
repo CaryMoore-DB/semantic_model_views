@@ -1,16 +1,7 @@
-# Databricks notebook source
-
-# COMMAND ----------
-
 """
 Configuration for PCDM Fake Data Generation
 """
-
-# COMMAND ----------
-
 from datetime import datetime, timedelta
-
-# COMMAND ----------
 
 # Database Configuration
 DATABASE_CONFIG = {

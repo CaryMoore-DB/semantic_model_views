@@ -1,13 +1,6 @@
-# Databricks notebook source
-
-# COMMAND ----------
-
 """
 Utility functions for PCDM data generation
 """
-
-# COMMAND ----------
-
 import random
 from datetime import datetime, timedelta
 from faker import Faker
@@ -19,7 +12,6 @@ Faker.seed(42)
 random.seed(42)
 np.random.seed(42)
 
-# COMMAND ----------
 
 def random_date(start_date, end_date):
     """Generate a random date between start_date and end_date"""
