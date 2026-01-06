@@ -17,6 +17,11 @@ def random_date(start_date, end_date):
     """Generate a random date between start_date and end_date"""
     time_between = end_date - start_date
     days_between = time_between.days
+    
+    # Handle edge case where start and end are the same or very close
+    if days_between <= 0:
+        return start_date
+    
     random_days = random.randrange(days_between)
     return start_date + timedelta(days=random_days)
 

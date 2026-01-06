@@ -146,15 +146,25 @@ def generate_claim_data(spark):
         # Ensure claim_open_date is a date object for comparison
         open_date = claim_open_date.date() if hasattr(claim_open_date, 'date') else claim_open_date
         days_since_open = (datetime.now().date() - open_date).days
-        is_closed = should_claim_close(days_since_open)
         
-        if is_closed:
-            close_days = random.randint(30, min(days_since_open, 365))
-            claim_close_date = add_days(claim_open_date, close_days)
-            claim_status = 'CLOSED'
-        else:
+        # Only consider closing claims that have been open long enough
+        if days_since_open < 1:
+            # Claim just opened, keep it open
             claim_close_date = None
             claim_status = 'OPEN'
+        else:
+            is_closed = should_claim_close(days_since_open)
+            
+            if is_closed:
+                # Calculate close days ensuring valid range
+                max_close_days = min(days_since_open, 365)
+                min_close_days = min(30, max_close_days)
+                close_days = random.randint(min_close_days, max_close_days)
+                claim_close_date = add_days(claim_open_date, close_days)
+                claim_status = 'CLOSED'
+            else:
+                claim_close_date = None
+                claim_status = 'OPEN'
         
         # Assign to catastrophe if occurrence was catastrophic
         if occurrence['catastrophic_event_indicator'] == 1:
