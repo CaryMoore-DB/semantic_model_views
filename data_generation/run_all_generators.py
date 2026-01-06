@@ -104,20 +104,11 @@ def main():
         print("\n✓ ALL DATA GENERATION COMPLETED SUCCESSFULLY!")
     else:
         print(f"\n✗ DATA GENERATION INCOMPLETE - {failed} script(s) failed")
-        sys.exit(1)
     
     print("=" * 80)
 
 # COMMAND ----------
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n\n⚠ Generation interrupted by user")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n\n✗ Unexpected error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+# Note: This script uses subprocess which may not work well in Databricks notebooks.
+# Consider running each notebook individually instead.
+# main()

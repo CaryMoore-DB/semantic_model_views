@@ -9,7 +9,6 @@ Creates: states, party_roles, coverage_types, coverage_parts, coverage_groups
 
 # COMMAND ----------
 
-import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
@@ -220,17 +219,5 @@ def generate_reference_data(spark):
 
 # COMMAND ----------
 
-if __name__ == "__main__":
-    spark = SparkSession.builder \
-        .appName("PCDM Reference Data Generator") \
-        .getOrCreate()
-    
-    try:
-        generate_reference_data(spark)
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    finally:
-        spark.stop()
+# Execute the function (Databricks manages the Spark session)
+generate_reference_data(spark)

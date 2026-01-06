@@ -9,7 +9,6 @@ Creates: occurrence, catastrophe, claim, claim_coverage, claim_party_role
 
 # COMMAND ----------
 
-import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
@@ -234,17 +233,5 @@ def generate_claim_data(spark):
 
 # COMMAND ----------
 
-if __name__ == "__main__":
-    spark = SparkSession.builder \
-        .appName("PCDM Claim Data Generator") \
-        .getOrCreate()
-    
-    try:
-        generate_claim_data(spark)
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    finally:
-        spark.stop()
+# Execute the function (Databricks manages the Spark session)
+generate_claim_data(spark)

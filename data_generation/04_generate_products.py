@@ -9,7 +9,6 @@ Creates: line_of_business, product, company
 
 # COMMAND ----------
 
-import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
@@ -91,7 +90,7 @@ def generate_product_data(spark):
     }
     
     product_id = 1
-    for lob_id, lob_name, lob_desc in LINES_OF_BUSINESS:
+    for i, (lob_name, lob_group, lob_desc) in enumerate(LINES_OF_BUSINESS, 1):
         # Get product templates for this LOB
         if lob_name in product_templates:
             templates = product_templates[lob_name]
@@ -101,7 +100,7 @@ def generate_product_data(spark):
         for template in templates:
             products.append({
                 'product_id': product_id,
-                'line_of_business_id': lob_id,
+                'line_of_business_id': i,
                 'licensed_product_name': f"{lob_name} - {template}",
                 'product_description': f"{template} product for {lob_name}",
             })
@@ -137,17 +136,5 @@ def generate_product_data(spark):
 
 # COMMAND ----------
 
-if __name__ == "__main__":
-    spark = SparkSession.builder \
-        .appName("PCDM Product Data Generator") \
-        .getOrCreate()
-    
-    try:
-        generate_product_data(spark)
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    finally:
-        spark.stop()
+# Execute the function (Databricks manages the Spark session)
+generate_product_data(spark)

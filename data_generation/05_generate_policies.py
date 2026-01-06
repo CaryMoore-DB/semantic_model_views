@@ -9,7 +9,6 @@ Creates: agreement, policy, policy_coverage_detail, policy_limit, policy_deducti
 
 # COMMAND ----------
 
-import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
@@ -237,17 +236,5 @@ def generate_policy_data(spark):
 
 # COMMAND ----------
 
-if __name__ == "__main__":
-    spark = SparkSession.builder \
-        .appName("PCDM Policy Data Generator") \
-        .getOrCreate()
-    
-    try:
-        generate_policy_data(spark)
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    finally:
-        spark.stop()
+# Execute the function (Databricks manages the Spark session)
+generate_policy_data(spark)
