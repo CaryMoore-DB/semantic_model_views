@@ -38,18 +38,12 @@ def generate_party_data(spark):
         person_id = id_gen.next_id('person')
         
         person_data = generate_person_dict()
-        begin_date = random_date(
-            datetime(2010, 1, 1),
-            datetime(2020, 1, 1)
-        )
         
         # Party record
         parties.append({
             'party_id': party_id,
             'party_name': person_data['full_legal_name'],
             'party_type_code': 'PERSON',
-            'begin_date': begin_date,
-            'end_date': None,
         })
         
         # Person record
@@ -75,18 +69,12 @@ def generate_party_data(spark):
         org_id = id_gen.next_id('organization')
         
         org_name = fake.company()
-        begin_date = random_date(
-            datetime(2000, 1, 1),
-            datetime(2020, 1, 1)
-        )
         
         # Party record
         parties.append({
             'party_id': party_id,
             'party_name': org_name,
             'party_type_code': 'ORGANIZATION',
-            'begin_date': begin_date,
-            'end_date': None,
         })
         
         # Organization record
@@ -116,18 +104,12 @@ def generate_party_data(spark):
         household_id = id_gen.next_id('household')
         
         household_name = f"Household {i}"
-        begin_date = random_date(
-            datetime(2010, 1, 1),
-            datetime(2020, 1, 1)
-        )
         
         # Party record
         parties.append({
             'party_id': party_id,
             'party_name': household_name,
             'party_type_code': 'GROUPING',
-            'begin_date': begin_date,
-            'end_date': None,
         })
         
         # Grouping record
@@ -155,18 +137,12 @@ def generate_party_data(spark):
         grouping_id = id_gen.next_id('grouping')
         
         group_name = f"{fake.company()} Group"
-        begin_date = random_date(
-            datetime(2000, 1, 1),
-            datetime(2020, 1, 1)
-        )
         
         # Party record
         parties.append({
             'party_id': party_id,
             'party_name': group_name,
             'party_type_code': 'GROUPING',
-            'begin_date': begin_date,
-            'end_date': None,
         })
         
         # Grouping record
@@ -186,8 +162,7 @@ def generate_party_data(spark):
     print("\n\nSaving to Databricks tables...")
     
     df_party = create_dataframe(parties, 
-                                ['party_id', 'party_name', 'party_type_code', 
-                                 'begin_date', 'end_date'])
+                                ['party_id', 'party_name', 'party_type_code'])
     save_to_table(spark, df_party, 'party', catalog, schema)
     
     df_person = create_dataframe(persons,
