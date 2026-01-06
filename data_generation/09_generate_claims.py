@@ -37,11 +37,16 @@ def load_existing_data(spark, catalog, schema):
     states_df = spark.table(f"{catalog}.{schema}.state")
     states = [row.state_code for row in states_df.collect()]
     
+    # Load geographic locations
+    geo_locations_df = spark.table(f"{catalog}.{schema}.geographic_location")
+    geo_locations = [row.geographic_location_id for row in geo_locations_df.collect()]
+    
     return {
         'policies': policies,
         'policy_coverages': policy_coverages,
         'parties': parties,
         'states': states,
+        'geo_locations': geo_locations,
     }
 
 # COMMAND ----------
@@ -96,9 +101,13 @@ def generate_claim_data(spark):
         # Some occurrences are catastrophic
         is_cat = random.random() < BUSINESS_RULES['catastrophe_probability']
         
+        # Select a random geographic location for the occurrence
+        geographic_location_id = random.choice(ref_data['geo_locations'])
+        
         occurrences.append({
             'occurrence_id': occurrence_id,
             'catastrophic_event_indicator': 1 if is_cat else 0,
+            'geographic_location_id': geographic_location_id,
             'occurrence_begin_date': occurrence_date,
             'occurrence_begin_time': datetime.now().time(),
             'occurrence_end_date': occurrence_date,
@@ -203,8 +212,8 @@ def generate_claim_data(spark):
     
     df_occ = create_dataframe(occurrences,
                               ['occurrence_id', 'catastrophic_event_indicator',
-                               'occurrence_begin_date', 'occurrence_begin_time', 
-                               'occurrence_end_date', 'occurrence_end_time'])
+                               'geographic_location_id', 'occurrence_begin_date', 
+                               'occurrence_begin_time', 'occurrence_end_date', 'occurrence_end_time'])
     save_to_table(spark, df_occ, 'occurrence', catalog, schema)
     
     df_claim = create_dataframe(claims,

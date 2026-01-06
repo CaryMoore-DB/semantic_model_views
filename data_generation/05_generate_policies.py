@@ -32,6 +32,10 @@ def load_existing_data(spark, catalog, schema):
     states_df = spark.table(f"{catalog}.{schema}.state")
     states = [row.state_code for row in states_df.collect()]
     
+    # Load geographic locations
+    geo_locations_df = spark.table(f"{catalog}.{schema}.geographic_location")
+    geo_locations = [row.geographic_location_id for row in geo_locations_df.collect()]
+    
     # Load coverages
     coverages_df = spark.table(f"{catalog}.{schema}.coverage")
     coverages = [(row.coverage_id, row.coverage_part_code, row.coverage_name) 
@@ -41,6 +45,7 @@ def load_existing_data(spark, catalog, schema):
         'parties': parties,
         'products': products,
         'states': states,
+        'geo_locations': geo_locations,
         'coverages': coverages,
     }
 
@@ -71,10 +76,11 @@ def generate_policy_data(spark):
         agreement_id = id_gen.next_id('agreement')
         policy_id = id_gen.next_id('policy')
         
-        # Select random product and party
+        # Select random product, party, and location
         product_id, lob_id, product_name = random.choice(ref_data['products'])
         party_id, party_name = random.choice(ref_data['parties'])
         state_code = random.choice(ref_data['states'])
+        geographic_location_id = random.choice(ref_data['geo_locations'])
         
         # Generate policy dates
         inception_date = random_date(
@@ -116,6 +122,7 @@ def generate_policy_data(spark):
             'effective_date': effective_date,
             'expiration_date': expiration_date,
             'status_code': status,
+            'geographic_location_id': geographic_location_id,
         })
         
         # Agreement party role (insured)
@@ -198,7 +205,8 @@ def generate_policy_data(spark):
     
     df_policy = create_dataframe(policies,
                                  ['policy_id', 'agreement_id', 'policy_number',
-                                  'effective_date', 'expiration_date', 'status_code'])
+                                  'effective_date', 'expiration_date', 'status_code',
+                                  'geographic_location_id'])
     save_to_table(spark, df_policy, 'policy', catalog, schema)
     
     df_apr = create_dataframe(agreement_party_roles,

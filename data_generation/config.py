@@ -23,6 +23,10 @@ DATA_VOLUMES = {
     'households': 1500,
     'professional_groups': 50,
     
+    # Geographic locations
+    'location_addresses': 5000,
+    'geographic_locations': 5000,
+    
     # Products
     'line_of_business_groups': 5,
     'lines_of_business': 15,
