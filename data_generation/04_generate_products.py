@@ -1,12 +1,20 @@
 # Databricks notebook source
+
+# COMMAND ----------
+
 """
 04 - Generate Product Data for PCDM
 Creates: line_of_business, product, company
 """
+
+# COMMAND ----------
+
 import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
+
+# COMMAND ----------
 
 def generate_product_data(spark):
     """Generate product and line of business data"""
@@ -127,6 +135,7 @@ def generate_product_data(spark):
     print(f"  Products: {len(products)}")
     print("=" * 60)
 
+# COMMAND ----------
 
 if __name__ == "__main__":
     spark = SparkSession.builder \

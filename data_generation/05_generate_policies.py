@@ -1,12 +1,20 @@
 # Databricks notebook source
+
+# COMMAND ----------
+
 """
 05 - Generate Policy Data for PCDM
 Creates: agreement, policy, policy_coverage_detail, policy_limit, policy_deductible
 """
+
+# COMMAND ----------
+
 import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
+
+# COMMAND ----------
 
 def load_existing_data(spark, catalog, schema):
     """Load existing reference data"""
@@ -37,6 +45,7 @@ def load_existing_data(spark, catalog, schema):
         'coverages': coverages,
     }
 
+# COMMAND ----------
 
 def generate_policy_data(spark):
     """Generate policy data"""
@@ -226,6 +235,7 @@ def generate_policy_data(spark):
     print(f"  Deductibles: {len(policy_deductibles)}")
     print("=" * 60)
 
+# COMMAND ----------
 
 if __name__ == "__main__":
     spark = SparkSession.builder \

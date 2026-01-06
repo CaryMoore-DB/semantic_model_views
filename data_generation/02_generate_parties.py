@@ -1,12 +1,20 @@
 # Databricks notebook source
+
+# COMMAND ----------
+
 """
 02 - Generate Party Data for PCDM
 Creates: party, person, organization, grouping, household
 """
+
+# COMMAND ----------
+
 import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
+
+# COMMAND ----------
 
 def generate_party_data(spark):
     """Generate party data including persons, organizations, and groups"""
@@ -213,6 +221,7 @@ def generate_party_data(spark):
     print(f"  Households: {len(households)}")
     print("=" * 60)
 
+# COMMAND ----------
 
 if __name__ == "__main__":
     spark = SparkSession.builder \

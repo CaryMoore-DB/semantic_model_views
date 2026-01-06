@@ -1,13 +1,20 @@
 # Databricks notebook source
 
+# COMMAND ----------
+
 """
 01 - Generate Reference Data for PCDM
 Creates: states, party_roles, coverage_types, coverage_parts, coverage_groups
 """
+
+# COMMAND ----------
+
 import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
+
+# COMMAND ----------
 
 def generate_reference_data(spark):
     """Generate all reference/lookup data"""
@@ -211,6 +218,7 @@ def generate_reference_data(spark):
     print("Reference Data Generation Complete!")
     print("=" * 60)
 
+# COMMAND ----------
 
 if __name__ == "__main__":
     spark = SparkSession.builder \

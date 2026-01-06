@@ -1,10 +1,18 @@
 # Databricks notebook source
+
+# COMMAND ----------
+
 """
 Master script to run all PCDM data generation scripts in order
 """
+
+# COMMAND ----------
+
 import sys
 import subprocess
 from datetime import datetime
+
+# COMMAND ----------
 
 # List of all generator scripts in execution order
 GENERATOR_SCRIPTS = [
@@ -20,6 +28,8 @@ GENERATOR_SCRIPTS = [
     ("10_generate_claim_amounts.py", "Claim Amounts (Payments, Reserves, Recoveries)"),
     ("11_generate_legal_data.py", "Legal Data (Litigation, Attorneys, Courts)"),
 ]
+
+# COMMAND ----------
 
 def run_script(script_name, description):
     """Run a single generator script"""
@@ -50,6 +60,7 @@ def run_script(script_name, description):
         print(f"\n✗ ERROR: Script {script_name} not found")
         return False
 
+# COMMAND ----------
 
 def main():
     """Run all generator scripts"""
@@ -97,6 +108,7 @@ def main():
     
     print("=" * 80)
 
+# COMMAND ----------
 
 if __name__ == "__main__":
     try:

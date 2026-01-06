@@ -1,12 +1,20 @@
 # Databricks notebook source
+
+# COMMAND ----------
+
 """
 09 - Generate Claim Data for PCDM
 Creates: occurrence, catastrophe, claim, claim_coverage, claim_party_role
 """
+
+# COMMAND ----------
+
 import sys
 from pyspark.sql import SparkSession
 from config import *
 from utils import *
+
+# COMMAND ----------
 
 def load_existing_data(spark, catalog, schema):
     """Load existing reference data"""
@@ -37,6 +45,7 @@ def load_existing_data(spark, catalog, schema):
         'states': states,
     }
 
+# COMMAND ----------
 
 def generate_claim_data(spark):
     """Generate claim data"""
@@ -223,6 +232,7 @@ def generate_claim_data(spark):
     print(f"  Claim Party Roles: {len(claim_party_roles)}")
     print("=" * 60)
 
+# COMMAND ----------
 
 if __name__ == "__main__":
     spark = SparkSession.builder \
