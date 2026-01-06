@@ -157,9 +157,10 @@ def generate_claim_data(spark):
             
             if is_closed:
                 # Calculate close days ensuring valid range
+                # Claims can close between 1 day and min(days_since_open, 365 days)
                 max_close_days = min(days_since_open, 365)
-                min_close_days = min(30, max_close_days)
-                close_days = random.randint(min_close_days, max_close_days)
+                # Use a minimum of 1 day for closing
+                close_days = random.randint(1, max(1, max_close_days))
                 claim_close_date = add_days(claim_open_date, close_days)
                 claim_status = 'CLOSED'
             else:
