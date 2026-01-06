@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 02 - Generate Party Data for PCDM
 Creates: party, person, organization, grouping, household

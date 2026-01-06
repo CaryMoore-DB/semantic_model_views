@@ -28,7 +28,7 @@
 # COMMAND ----------
 
 # Set your target catalog and schema
-CATALOG = "main"
+CATALOG = "cmoore_user"
 SCHEMA = "pcdm_test"  # Change this to your target schema
 
 # Update the config

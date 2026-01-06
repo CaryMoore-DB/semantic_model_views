@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 04 - Generate Product Data for PCDM
 Creates: line_of_business, product, company

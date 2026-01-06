@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Master script to run all PCDM data generation scripts in order
 """
