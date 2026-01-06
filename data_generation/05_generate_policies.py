@@ -116,7 +116,6 @@ def generate_policy_data(spark):
             'effective_date': effective_date,
             'expiration_date': expiration_date,
             'status_code': status,
-            'geographic_location_id': None,  # Would need geo locations
         })
         
         # Agreement party role (insured)
@@ -154,7 +153,6 @@ def generate_policy_data(spark):
                 'policy_id': policy_id,
                 'coverage_part_code': coverage_part_code,
                 'coverage_id': coverage_id,
-                'insurable_object_id': None,  # Would link to risks
                 'expiration_date': expiration_date,
                 'coverage_inclusion_exclusion_code': 1,  # Inclusion
                 'coverage_description': coverage_name,
@@ -200,8 +198,7 @@ def generate_policy_data(spark):
     
     df_policy = create_dataframe(policies,
                                  ['policy_id', 'agreement_id', 'policy_number',
-                                  'effective_date', 'expiration_date', 'status_code',
-                                  'geographic_location_id'])
+                                  'effective_date', 'expiration_date', 'status_code'])
     save_to_table(spark, df_policy, 'policy', catalog, schema)
     
     df_apr = create_dataframe(agreement_party_roles,
@@ -211,9 +208,8 @@ def generate_policy_data(spark):
     
     df_pcd = create_dataframe(policy_coverage_details,
                               ['policy_coverage_detail_id', 'effective_date', 'policy_id',
-                               'coverage_part_code', 'coverage_id', 'insurable_object_id',
-                               'expiration_date', 'coverage_inclusion_exclusion_code',
-                               'coverage_description'])
+                               'coverage_part_code', 'coverage_id', 'expiration_date', 
+                               'coverage_inclusion_exclusion_code', 'coverage_description'])
     save_to_table(spark, df_pcd, 'policy_coverage_detail', catalog, schema)
     
     df_limit = create_dataframe(policy_limits,

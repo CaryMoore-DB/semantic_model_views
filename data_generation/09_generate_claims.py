@@ -99,7 +99,6 @@ def generate_claim_data(spark):
         occurrences.append({
             'occurrence_id': occurrence_id,
             'catastrophic_event_indicator': 1 if is_cat else 0,
-            'geographic_location_id': None,
             'occurrence_begin_date': occurrence_date,
             'occurrence_begin_time': datetime.now().time(),
             'occurrence_end_date': occurrence_date,
@@ -158,9 +157,7 @@ def generate_claim_data(spark):
             'claim_id': claim_id,
             'occurrence_id': occurrence_id,
             'catastrophe_id': catastrophe_id,
-            'insurable_object_id': None,  # Would link to risk
             'company_claim_number': generate_claim_number(),
-            'company_subclaim_number': None,
             'claim_description': fake.sentence(),
             'claim_open_date': claim_open_date,
             'claim_close_date': claim_close_date,
@@ -206,13 +203,13 @@ def generate_claim_data(spark):
     
     df_occ = create_dataframe(occurrences,
                               ['occurrence_id', 'catastrophic_event_indicator',
-                               'geographic_location_id', 'occurrence_begin_date',
-                               'occurrence_begin_time', 'occurrence_end_date', 'occurrence_end_time'])
+                               'occurrence_begin_date', 'occurrence_begin_time', 
+                               'occurrence_end_date', 'occurrence_end_time'])
     save_to_table(spark, df_occ, 'occurrence', catalog, schema)
     
     df_claim = create_dataframe(claims,
-                                ['claim_id', 'occurrence_id', 'catastrophe_id', 'insurable_object_id',
-                                 'company_claim_number', 'company_subclaim_number', 'claim_description',
+                                ['claim_id', 'occurrence_id', 'catastrophe_id',
+                                 'company_claim_number', 'claim_description',
                                  'claim_open_date', 'claim_close_date', 'claim_reopen_date',
                                  'claim_status_code', 'claim_reported_date', 'claims_made_date',
                                  'entry_in_to_claims_made_program_date'])
