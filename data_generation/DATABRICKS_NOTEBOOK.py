@@ -1,7 +1,4 @@
-"""
-Databricks notebook for running all PCDM data generation scripts
-Can be run directly in Databricks workspace
-"""
+# Databricks notebook source
 
 # COMMAND ----------
 
