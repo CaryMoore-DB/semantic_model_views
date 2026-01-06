@@ -8,17 +8,13 @@
 # MAGIC This notebook runs all data generation scripts to populate the PCDM with synthetic data.
 # MAGIC
 # MAGIC ## Execution Order:
+# MAGIC 0. **Cleanup** - Drop existing tables (optional)
 # MAGIC 1. Reference Data
 # MAGIC 2. Party Data
-# MAGIC 3. Geographic Data
+# MAGIC 3. Geographic Location Data
 # MAGIC 4. Product Data
 # MAGIC 5. Policy Data
-# MAGIC 6. Risk Data
-# MAGIC 7. Premium Data
-# MAGIC 8. Occurrence Data
-# MAGIC 9. Claim Data
-# MAGIC 10. Claim Amount Data
-# MAGIC 11. Legal Data
+# MAGIC 6. Claim Data
 
 # COMMAND ----------
 
@@ -44,6 +40,20 @@ print(f"Target: {CATALOG}.{SCHEMA}")
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Step 0: Cleanup (Optional)
+# MAGIC 
+# MAGIC **⚠️ WARNING**: This will drop all existing PCDM tables!
+# MAGIC 
+# MAGIC Uncomment the line below to run cleanup before generating new data.
+
+# COMMAND ----------
+
+# UNCOMMENT THE LINE BELOW TO DROP ALL TABLES BEFORE REGENERATING
+# %run ./00_cleanup_tables
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Step 1: Reference Data
 
 # COMMAND ----------
@@ -62,7 +72,16 @@ print(f"Target: {CATALOG}.{SCHEMA}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 3: Product Data
+# MAGIC ## Step 3: Geographic Location Data
+
+# COMMAND ----------
+
+# MAGIC %run ./03_generate_locations
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Step 4: Product Data
 
 # COMMAND ----------
 
@@ -71,7 +90,7 @@ print(f"Target: {CATALOG}.{SCHEMA}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 4: Policy Data
+# MAGIC ## Step 5: Policy Data
 
 # COMMAND ----------
 
@@ -80,7 +99,7 @@ print(f"Target: {CATALOG}.{SCHEMA}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 5: Claim Data
+# MAGIC ## Step 6: Claim Data
 
 # COMMAND ----------
 
@@ -106,7 +125,10 @@ summary_queries = [
     ("Parties", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.party"),
     ("Persons", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.person"),
     ("Organizations", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.organization"),
+    ("Geographic Locations", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.geographic_location"),
+    ("Products", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.product"),
     ("Policies", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.policy"),
+    ("Occurrences", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.occurrence"),
     ("Claims", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.claim"),
 ]
 
