@@ -85,13 +85,16 @@ def generate_policy_data(spark):
             DATE_RANGES['policy_term_days_min'],
             DATE_RANGES['policy_term_days_max']
         )
-        effective_date = inception_date
+        effective_date = inception_date.date() if hasattr(inception_date, 'date') else inception_date
         expiration_date = add_days(effective_date, term_days)
         
+        # Get today's date for comparison
+        today = datetime.now().date()
+        
         # Policy status
-        if expiration_date < datetime.now().date():
+        if expiration_date < today:
             status = random.choice(['EXPIRED', 'CANCELLED'])
-        elif effective_date > datetime.now().date():
+        elif effective_date > today:
             status = 'PENDING'
         else:
             status = 'ACTIVE'

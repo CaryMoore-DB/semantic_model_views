@@ -89,6 +89,9 @@ def generate_claim_data(spark):
             DATE_RANGES['occurrence_start_date'],
             DATE_RANGES['occurrence_end_date']
         )
+        # Convert to date if it's a datetime
+        if hasattr(occurrence_date, 'date'):
+            occurrence_date = occurrence_date.date()
         
         # Some occurrences are catastrophic
         is_cat = random.random() < BUSINESS_RULES['catastrophe_probability']
@@ -132,7 +135,9 @@ def generate_claim_data(spark):
         claim_reported_date = add_days(claim_open_date, report_lag_days)
         
         # Determine if claim closes
-        days_since_open = (datetime.now().date() - claim_open_date).days
+        # Ensure claim_open_date is a date object for comparison
+        open_date = claim_open_date.date() if hasattr(claim_open_date, 'date') else claim_open_date
+        days_since_open = (datetime.now().date() - open_date).days
         is_closed = should_claim_close(days_since_open)
         
         if is_closed:
