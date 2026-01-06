@@ -104,14 +104,26 @@ def generate_claim_data(spark):
         # Select a random geographic location for the occurrence
         geographic_location_id = random.choice(ref_data['geo_locations'])
         
+        # Generate random time of day
+        begin_hour = random.randint(0, 23)
+        begin_minute = random.randint(0, 59)
+        begin_time_str = f"{begin_hour:02d}:{begin_minute:02d}:00"
+        
+        # End time is usually same or slightly later
+        end_hour = begin_hour + random.randint(0, 2)
+        if end_hour > 23:
+            end_hour = 23
+        end_minute = random.randint(0, 59)
+        end_time_str = f"{end_hour:02d}:{end_minute:02d}:00"
+        
         occurrences.append({
             'occurrence_id': occurrence_id,
             'catastrophic_event_indicator': 1 if is_cat else 0,
             'geographic_location_id': geographic_location_id,
             'occurrence_begin_date': occurrence_date,
-            'occurrence_begin_time': datetime.now().time(),
+            'occurrence_begin_time': begin_time_str,
             'occurrence_end_date': occurrence_date,
-            'occurrence_end_time': datetime.now().time(),
+            'occurrence_end_time': end_time_str,
         })
         
         if i % 500 == 0:
