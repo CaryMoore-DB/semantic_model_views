@@ -2,7 +2,7 @@
 -- dim_attorney DDL - Attorney Dimension (SCD Type 2)
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_attorney (
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.dim_attorney') (
   -- Surrogate Key
   attorney_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
@@ -68,6 +68,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Attorney Dimension - SCD Type 2. Tracks attorney information and changes over time.';

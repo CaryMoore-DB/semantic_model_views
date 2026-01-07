@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 # Database Configuration
 DATABASE_CONFIG = {
-    'catalog': 'main',
+    'catalog': 'cmoore_user',
     'schema': 'pcdm_test',  # Change to your target schema
 }
 

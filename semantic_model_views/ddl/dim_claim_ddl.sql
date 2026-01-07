@@ -2,8 +2,8 @@
 -- dim_claim DDL - Claim Dimension (SCD Type 2)
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_claim (
-  -- Surrogate Key
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.dim_claim') (
+  -- Surrogate Key :param_1
   claim_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
   -- Natural Key
@@ -77,6 +77,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Claim Dimension - SCD Type 2. Tracks claim information and status changes over time.';

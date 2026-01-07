@@ -5,7 +5,7 @@
 -- They reference dimension surrogate keys (SK) for SCD lookups
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.fact_claims (
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.fact_claims') (
   -- Surrogate Key
   claim_transaction_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
@@ -104,6 +104,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Claims Fact Table. Links to dimension SKs for SCD Type 2 support.';

@@ -5,7 +5,7 @@
 -- They reference dimension surrogate keys (SK) for SCD lookups
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.fact_premium_payments (
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.fact_premium_payments') (
   -- Surrogate Key
   premium_payment_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
@@ -76,6 +76,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Premium Payment Fact Table. Links to dimension SKs for SCD Type 2 support.';

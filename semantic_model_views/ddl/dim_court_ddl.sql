@@ -2,7 +2,7 @@
 -- dim_court DDL - Court Jurisdiction Dimension (SCD Type 2)
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_court (
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.dim_court') (
   -- Surrogate Key
   court_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
@@ -40,6 +40,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Court Jurisdiction Dimension - SCD Type 2. Tracks court and jurisdiction information.';

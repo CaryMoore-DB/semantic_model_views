@@ -7,7 +7,7 @@
 -- Includes: Households, Organizations, Professional Groups, etc.
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_group (
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.dim_group') (
   -- Surrogate Key
   group_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
@@ -49,6 +49,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Customer Group Dimension - SCD Type 2. Top level of hierarchy: Group -> Policy -> Risk';

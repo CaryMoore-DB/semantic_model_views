@@ -7,7 +7,7 @@
 -- Links to Policy via policy_key
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_risk (
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.dim_risk') (
   -- Surrogate Key
   risk_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
@@ -73,6 +73,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Risk/Insurable Object Dimension - SCD Type 2. Bottom level of hierarchy: Group -> Policy -> Risk';
