@@ -27,4 +27,5 @@ CREATE OR REFRESH STREAMING TABLE dim_group;
 
 APPLY CHANGES INTO dim_group
 FROM STREAM(LIVE.dim_group_source)
-KEYS (group_id);
+KEYS (group_id)
+SEQUENCE BY group_id;
