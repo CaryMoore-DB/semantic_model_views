@@ -99,6 +99,15 @@ print(f"Target: {CATALOG}.{SCHEMA}")
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Step 4b: Insurable Objects (Vehicles & Structures)
+
+# COMMAND ----------
+
+# MAGIC %run ./04b_generate_insurable_objects
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Step 5: Policy Data
 
 # COMMAND ----------
@@ -137,6 +146,9 @@ summary_queries = [
     ("Party Relationships", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.party_relationship"),
     ("Geographic Locations", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.geographic_location"),
     ("Products", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.product"),
+    ("Insurable Objects", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.insurable_object"),
+    ("Vehicles", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.vehicle"),
+    ("Structures", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.structure"),
     ("Policies", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.policy"),
     ("Occurrences", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.occurrence"),
     ("Claims", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.claim"),

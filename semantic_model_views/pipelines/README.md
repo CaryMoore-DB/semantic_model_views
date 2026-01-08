@@ -1,59 +1,32 @@
 # Delta Live Tables Pipelines - Insurance Analytics
 
-## ⭐ RECOMMENDED: SQL-Based DLT Pipeline
-
-**Use `dlt_insurance_analytics.sql`** - A single, unified SQL-based DLT notebook.
-
-### Why SQL?
-- ✅ **Simpler**: Declarative SQL syntax vs complex Python
-- ✅ **Faster**: Better performance for transformations
-- ✅ **Easier**: Native DLT SQL support
-- ✅ **All-in-one**: Single notebook for all dimensions and facts
-
-### Quick Start with SQL Pipeline
-
-1. Open **Databricks Workflows** → **Delta Live Tables**
-2. Click **Create Pipeline**
-3. Configure:
-   - **Name**: `insurance_analytics_pipeline`
-   - **Notebook**: Select `dlt_insurance_analytics.sql`
-   - **Target**: `main.insurance_analytics` (your schema)
-   - **Cluster**: Enhanced Autoscaling
-4. Click **Start**
-
-That's it! The pipeline creates all tables automatically.
-
----
-
 ## Overview
 
-This directory contains **Delta Live Tables (DLT)** pipelines for building the insurance analytics dimensional model with **SCD Type 2** support and comprehensive **data quality expectations**.
+This directory contains **individual SQL Delta Live Tables (DLT)** pipelines for building the insurance analytics dimensional model with **SCD Type 2** support and comprehensive **data quality expectations**.
 
-### Available Approaches
-1. **SQL Pipeline** (⭐ Recommended): `dlt_insurance_analytics.sql` - Single unified notebook
-2. **Python Pipelines**: Individual `.py` files for each table (legacy/reference)
+Each dimension and fact table has its own SQL file, allowing for:
+- ✅ **Modular development** - Work on individual tables independently
+- ✅ **Easier debugging** - Isolate issues to specific tables
+- ✅ **Flexible deployment** - Deploy only the tables you need
+- ✅ **Clear organization** - One file per table
 
 ## Architecture
 
-### Medallion Architecture
+### Dimensional Hierarchy
 
 ```
-Bronze (Source) → Silver (Dimensional Model) → Gold (Analytics)
+dim_group (1:Many)
+  ↓ (FK: group_id)
+dim_policy (1:Many)
+  ↓ (FK: policy_id)
+dim_risk (policy_coverage_detail + insurable_objects)
 ```
 
-- **Bronze**: Raw data extraction from PCDM with basic transformations
-- **Silver**: Dimension and fact tables with SCD Type 2 tracking
-- **Gold**: Analytics-ready aggregations and business views
+### Group Resolution
 
-### Hierarchy
-
-```
-Group (1:Many)
-  ↓
-Policy (1:Many)
-  ↓
-Risk
-```
+Group membership is resolved through the `party_relationship` table:
+- Persons (insureds) → `party_relationship` (MEMBER_OF) → Groups
+- If no group membership, defaults to group_id = 0 ("No Group")
 
 ## Pipeline Files
 
@@ -61,278 +34,240 @@ Risk
 
 | File | Table | SCD Type | Description |
 |------|-------|----------|-------------|
-| `dlt_dim_date.py` | dim_date | Type 1 (Static) | Date dimension 2000-2050 |
-| `dlt_dim_group.py` | dim_group | Type 2 | Customer groups (top of hierarchy) |
-| `dlt_dim_policy.py` | dim_policy | Type 2 | Policies (middle of hierarchy) |
-| `dlt_dim_risk.py` | dim_risk | Type 2 | Insurable objects (bottom of hierarchy) |
-| `dlt_dim_claim.py` | dim_claim | Type 2 | Claims |
-| `dlt_dim_attorney.py` | dim_attorney | Type 2 | Attorneys and law firms |
-| `dlt_dim_court.py` | dim_court | Type 2 | Court jurisdictions |
-| `dlt_dim_outcome.py` | dim_outcome | Type 2 | Legal outcomes (litigation/arbitration) |
+| `dlt_dim_date.sql` | dim_date | Static | Date dimension 2020-2030 |
+| `dlt_dim_group.sql` | dim_group | Type 1 | Customer groups (upsert only) |
+| `dlt_dim_policy.sql` | dim_policy | Type 2 | Policies with SCD history |
+| `dlt_dim_risk.sql` | dim_risk | Type 2 | Insurable objects (vehicles, structures) |
+| `dlt_dim_claim.sql` | dim_claim | Type 2 | Claims with SCD history |
+| `dlt_dim_attorney.sql` | dim_attorney | Static | Attorney dimension stub |
+| `dlt_dim_court.sql` | dim_court | Static | Court dimension stub |
+| `dlt_dim_outcome.sql` | dim_outcome | Static | Outcome dimension stub |
 
 ### Fact Pipelines (2)
 
 | File | Table | Description |
 |------|-------|-------------|
-| `dlt_fact_premium_payments.py` | fact_premium_payments | Premium transactions with dimension SK lookups |
-| `dlt_fact_claims.py` | fact_claims | Claim transactions with dimension SK lookups |
-
-### Master Pipeline
-
-| File | Description |
-|------|-------------|
-| `DLT_MASTER_PIPELINE.py` | Orchestrates all pipelines with documentation |
+| `dlt_fact_premium_payments.sql` | fact_premium_payments | Premium transactions with group resolution |
+| `dlt_fact_claims.sql` | fact_claims | Claim transactions with group resolution |
 
 ## SCD Type 2 Implementation
 
-All dimension tables (except dim_date) implement **Slowly Changing Dimension Type 2** to track historical changes.
+DLT's native `APPLY CHANGES INTO ... STORED AS SCD TYPE 2` is used for dimensions with effective dates.
 
-### SCD Type 2 Fields
+### SCD Type 2 Syntax
 
 ```sql
-effective_begin_date  TIMESTAMP  -- When this version became effective
-effective_end_date    TIMESTAMP  -- When this version expired (NULL = current)
-is_current            BOOLEAN    -- TRUE for current record
-created_timestamp     TIMESTAMP  -- Record creation time
-updated_timestamp     TIMESTAMP  -- Record last updated time
+CREATE OR REFRESH STREAMING TABLE dim_policy_source (...);
+
+CREATE OR REFRESH STREAMING TABLE dim_policy;
+
+APPLY CHANGES INTO dim_policy
+FROM STREAM(LIVE.dim_policy_source)
+KEYS (policy_id)
+SEQUENCE BY effective_date
+STORED AS SCD TYPE 2;
 ```
 
-### Surrogate Keys
+DLT automatically manages:
+- `__START_AT` - When this version became effective
+- `__END_AT` - When this version expired (NULL = current)
+- `__CURRENT` - TRUE for current record
 
-Each dimension has:
-- **Natural Key**: Business key from source system (e.g., `policy_key`, `group_key`)
-- **Surrogate Key**: Auto-generated identity column (e.g., `policy_sk`, `group_sk`)
+### SCD Type 1 (Upsert Only)
 
-Fact tables reference dimensions via surrogate keys to support SCD Type 2 lookups.
+For dimensions without effective dates (e.g., `dim_group`):
+
+```sql
+APPLY CHANGES INTO dim_group
+FROM STREAM(LIVE.dim_group_source)
+KEYS (group_id);
+-- No SEQUENCE BY or STORED AS SCD TYPE 2 = upsert only
+```
 
 ## Data Quality Expectations
 
-All pipelines include **data quality expectations** using DLT's `@dlt.expect_all_or_drop` decorator.
+All pipelines include data quality expectations using DLT's EXPECT clause:
+
+```sql
+CREATE OR REFRESH STREAMING TABLE dim_policy_source (
+  CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
+  CONSTRAINT valid_policy_number EXPECT (policy_number IS NOT NULL),
+  CONSTRAINT valid_effective_date EXPECT (effective_date IS NOT NULL),
+  CONSTRAINT valid_group_id EXPECT (group_id IS NOT NULL)
+)
+```
 
 ### Validation Types
 
-#### 1. NOT NULL Validation
-```python
-"valid_policy_key": "policy_key IS NOT NULL"
-"valid_group_key": "group_key IS NOT NULL"
-```
-
-#### 2. Date Validation
-```python
-"valid_effective_date": "effective_date IS NOT NULL"
-"dates_in_order": "effective_date <= expiration_date"
-"dates_logical": "claim_close_date IS NULL OR claim_open_date <= claim_close_date"
-```
-
-#### 3. Numeric Validation
-```python
-"valid_premium_amount": "premium_amount >= 0"
-"policy_term_positive": "policy_term_days > 0"
-"amounts_non_negative": "total_claim_amount >= 0"
-```
-
-#### 4. Referential Integrity
-```python
-"valid_risk_category": "risk_category IN ('Vehicle', 'Structure', 'Other')"
-"valid_outcome_type": "outcome_type IN ('Litigation', 'Arbitration')"
-```
-
-#### 5. Business Logic
-```python
-"payment_logic": "is_payment = FALSE OR payment_amount > 0"
-"reserve_logic": "is_reserve = FALSE OR reserve_amount > 0"
-```
-
-### Expectation Modes
-
-- **expect_all_or_drop**: Invalid records are dropped (used in all pipelines)
-- Alternative modes: `expect`, `expect_all`, `expect_or_fail`
+1. **NOT NULL Validation**: Key fields must be present
+2. **Numeric Validation**: Amounts must be non-negative
+3. **Date Validation**: Dates must be populated and logical
+4. **Referential Integrity**: Foreign keys must exist
 
 ## Pipeline Execution
 
-### Option 1: Deploy via Databricks UI
+### Option 1: Deploy Individual Pipeline via Databricks UI
 
 1. Navigate to **Workflows** → **Delta Live Tables**
 2. Click **Create Pipeline**
 3. Configure:
-   - **Name**: `insurance_analytics_dlt_pipeline`
-   - **Notebook**: Select `DLT_MASTER_PIPELINE.py`
-   - **Target**: `main.insurance_analytics`
-   - **Storage Location**: `/pipelines/insurance_analytics`
-4. Click **Create**
-5. Click **Start** to run pipeline
+   - **Name**: `insurance_dim_policy`
+   - **Notebook**: Select `dlt_dim_policy.sql`
+   - **Target**: `cmoore_user.insurance_analytics`
+   - **Cluster**: Enhanced Autoscaling
+4. Click **Create** and **Start**
 
-### Option 2: Deploy via Databricks CLI
+### Option 2: Deploy All Pipelines
 
-```bash
-databricks pipelines create \
-  --name "insurance_analytics_dlt_pipeline" \
-  --notebook-path "/Workspace/path/to/DLT_MASTER_PIPELINE.py" \
-  --target "main.insurance_analytics" \
-  --storage "/pipelines/insurance_analytics" \
-  --configuration '{"catalog":"main","schema":"insurance_analytics"}'
+Create a master pipeline that references all individual SQL files:
 
-# Start the pipeline
-databricks pipelines start --pipeline-id <pipeline-id>
-```
-
-### Option 3: Run Individual Pipeline
-
-```python
-# In Databricks notebook
-%run ./pipelines/dlt_dim_group
-```
-
-## Configuration
-
-Set these Spark configurations before running:
-
-```python
-spark.conf.set("catalog", "main")
-spark.conf.set("schema", "insurance_analytics")
-```
-
-Or pass as pipeline configuration:
+1. Create a new pipeline with configuration:
 ```json
 {
-  "catalog": "main",
-  "schema": "insurance_analytics"
+  "name": "insurance_analytics_full_pipeline",
+  "target": "cmoore_user.insurance_analytics",
+  "catalog": "cmoore_user",
+  "libraries": [
+    {"notebook": {"path": "pipelines/dlt_dim_date.sql"}},
+    {"notebook": {"path": "pipelines/dlt_dim_group.sql"}},
+    {"notebook": {"path": "pipelines/dlt_dim_policy.sql"}},
+    {"notebook": {"path": "pipelines/dlt_dim_risk.sql"}},
+    {"notebook": {"path": "pipelines/dlt_dim_claim.sql"}},
+    {"notebook": {"path": "pipelines/dlt_dim_attorney.sql"}},
+    {"notebook": {"path": "pipelines/dlt_dim_court.sql"}},
+    {"notebook": {"path": "pipelines/dlt_dim_outcome.sql"}},
+    {"notebook": {"path": "pipelines/dlt_fact_premium_payments.sql"}},
+    {"notebook": {"path": "pipelines/dlt_fact_claims.sql"}}
+  ]
 }
 ```
+
+2. Start the pipeline
+
+### Option 3: Test Individual Pipeline in Notebook
+
+You can test a single pipeline by running the SQL file directly in a Databricks notebook.
 
 ## Source Data Requirements
 
 ### PCDM Tables Required
 
-**Group Dimension:**
-- grouping, party, organization, household, professional_group, project, team
+**dim_group:**
+- `grouping`, `party`
 
-**Policy Dimension:**
-- policy, agreement, product, line_of_business, line_of_business_group, insurance_class
-- geographic_location, state, agreement_party_role, party, grouping
-- policy_coverage_part
+**dim_policy:**
+- `policy`, `agreement`, `product`, `line_of_business`, `insurance_class`
+- `company`, `agreement_party_role`, `party_relationship`
 
-**Risk Dimension:**
-- insurable_object, vehicle, automobile, truck, van
-- structure, commercial_structure, residential_structure
-- geographic_location, location_address, state
-- policy_coverage_detail, policy_coverage_part
+**dim_risk:**
+- `policy_coverage_detail`, `coverage`, `insurable_object`
+- `vehicle`, `structure`, `commercial_structure`, `residential_structure`
+- `geographic_location`
 
-**Claim Dimension:**
-- claim, occurrence, geographic_location, state, catastrophe
+**dim_claim:**
+- `claim`, `occurrence`, `catastrophe`
 
-**Attorney Dimension:**
-- attorney, provider, party_role, party, person, organization
-- geographic_location, location_address, state
+**fact_premium_payments:**
+- `policy_coverage_detail`, `policy`, `agreement`, `agreement_party_role`
+- `party_relationship`, `coverage`, `policy_limit`, `policy_deductible`
 
-**Court Dimension:**
-- court_jurisdiction, legal_jurisdiction
+**fact_claims:**
+- `claim`, `claim_coverage`, `policy_coverage_detail`, `policy`
+- `agreement`, `agreement_party_role`, `party_relationship`
+- `occurrence`, `catastrophe`, `policy_limit`
 
-**Outcome Dimension:**
-- litigation, arbitration, court_jurisdiction, legal_jurisdiction
+## Key Features
 
-**Premium Fact:**
-- policy_amount, policy_coverage_detail, policy_coverage_part, policy
-- agreement, agreement_party_role, party, grouping
-- premium, tax, coverage
+### 1. Modular SQL Files
+Each table has its own SQL file for easier maintenance and debugging.
 
-**Claims Fact:**
-- claim_amount, claim, claim_coverage, policy_coverage_detail
-- policy_coverage_part, policy, agreement, agreement_party_role
-- party, grouping, claim_payment, claim_reserve, loss_payment
-- expense_payment, claim_litigation
+### 2. Native DLT SCD Type 2
+Uses `APPLY CHANGES INTO ... STORED AS SCD TYPE 2` for automatic history tracking.
 
-## Monitoring
+### 3. Party Relationship Resolution
+Groups are resolved through the `party_relationship` table using the `MEMBER_OF` relationship type.
 
-### Data Quality Metrics
+### 4. Streaming Tables
+Source tables use `CREATE OR REFRESH STREAMING TABLE` for incremental processing.
 
-Monitor pipeline execution for:
-- Records processed per table
-- Records dropped due to expectation failures
-- Pipeline execution time
-- Data freshness
+### 5. Materialized Views
+Static dimensions and fact tables use `CREATE OR REFRESH MATERIALIZED VIEW`.
 
-### Access Metrics
-
-```python
-# View expectation metrics
-display(spark.sql("SELECT * FROM event_log(<pipeline-id>)"))
-
-# View data quality metrics
-display(spark.sql("""
-  SELECT * FROM event_log(<pipeline-id>)
-  WHERE event_type = 'flow_progress'
-  AND details:flow_progress.metrics IS NOT NULL
-"""))
-```
-
-## Optimization
-
-### Delta Optimizations Enabled
-
-All tables configured with:
-```python
-table_properties={
-    "delta.enableChangeDataFeed": "true",
-    "delta.autoOptimize.optimizeWrite": "true",
-    "delta.autoOptimize.autoCompact": "true",
-    "pipelines.autoOptimize.zOrderCols": "key_columns"
-}
-```
-
-### Z-Ordering
-
-Optimized for common query patterns:
-- **dim_group**: `group_key`
-- **dim_policy**: `policy_key, group_key`
-- **dim_risk**: `risk_key, policy_key`
-- **fact_premium_payments**: `policy_key, group_key`
-- **fact_claims**: `claim_key, policy_key`
+### 6. Data Quality
+All tables include CONSTRAINT EXPECT clauses for data validation.
 
 ## Troubleshooting
 
 ### Common Issues
 
 **Issue**: Pipeline fails with "Table not found"
-- **Solution**: Verify PCDM tables exist in source catalog/schema
+- **Solution**: Verify PCDM tables exist in `cmoore_user.pcdm_test` catalog/schema
+
+**Issue**: "LIVE.table_name" reference error
+- **Solution**: In APPLY CHANGES INTO, use table name without LIVE. prefix:
+  - ✅ `APPLY CHANGES INTO dim_policy`
+  - ❌ `APPLY CHANGES INTO LIVE.dim_policy`
 
 **Issue**: High record drop rate
 - **Solution**: Review data quality expectations, check source data quality
 
-**Issue**: Performance issues
-- **Solution**: Adjust cluster size, enable auto-scaling, review Z-order columns
+**Issue**: SCD Type 2 not creating history
+- **Solution**: Verify `SEQUENCE BY` uses correct effective date column
 
-**Issue**: SCD Type 2 not updating
-- **Solution**: Verify change detection logic, check effective dates
+**Issue**: Group_id is NULL
+- **Solution**: Verify `party_relationship` table is populated and relationship_type_code = 'MEMBER_OF'
 
 ## Next Steps
 
 After successful pipeline execution:
 
 1. **Verify Data**: Query dimension and fact tables
-2. **Check Quality**: Review expectation metrics
-3. **Build Views**: Create semantic views on top of dimensional model
-4. **Deploy Metrics**: Deploy Databricks Metric Views YAML
-5. **Schedule**: Set up pipeline schedule for incremental loads
+```sql
+SELECT * FROM cmoore_user.insurance_analytics.dim_policy LIMIT 10;
+SELECT * FROM cmoore_user.insurance_analytics.fact_premium_payments LIMIT 10;
+```
+
+2. **Check SCD Type 2**:
+```sql
+SELECT 
+  policy_id,
+  policy_number,
+  effective_date,
+  __START_AT,
+  __END_AT,
+  __CURRENT
+FROM cmoore_user.insurance_analytics.dim_policy
+WHERE policy_id = 1
+ORDER BY __START_AT;
+```
+
+3. **Verify Group Resolution**:
+```sql
+SELECT 
+  p.policy_id,
+  p.policy_number,
+  p.group_id,
+  g.group_name
+FROM cmoore_user.insurance_analytics.dim_policy p
+JOIN cmoore_user.insurance_analytics.dim_group g ON p.group_id = g.group_id
+LIMIT 10;
+```
+
+4. **Build Views**: Create semantic views on top of dimensional model
+5. **Deploy Metrics**: Deploy Databricks Metric Views YAML
+6. **Schedule**: Set up pipeline schedule for incremental loads
 
 ## Related Documentation
 
 - `../ddl/*.sql` - Table DDL definitions
 - `../STAR_SCHEMA_DOCUMENTATION.md` - Schema design
-- `../../PCDM_to_Dimensional_Model_Mapping.xlsx` - Source-to-target mappings
+- `../../PCDM_to_Dimensional_Model_Mapping_v2.xlsx` - Source-to-target mappings
 - `../../SOURCE_TARGET_MAPPING_README.md` - Mapping documentation
-
-## Support
-
-For questions or issues:
-- Review pipeline execution logs in Databricks UI
-- Check data quality metrics
-- Verify source data availability
-- Review expectation failures
 
 ---
 
-**Pipeline Version**: 2.0  
-**SCD Type**: Type 2 for all dimensions  
-**Data Quality**: Comprehensive expectations  
-**Optimization**: Auto-optimize, Z-order, CDF enabled
+**Pipeline Version**: 3.0  
+**Format**: Individual SQL files  
+**SCD Type**: Type 2 using APPLY CHANGES INTO  
+**Group Resolution**: Via party_relationship table  
+**Data Quality**: Comprehensive EXPECT constraints

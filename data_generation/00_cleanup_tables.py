@@ -39,6 +39,11 @@ tables_to_drop = [
     'policy',
     'agreement',
     'party_relationship',  # Party relationships
+    'commercial_structure',  # Insurable objects
+    'residential_structure',
+    'structure',
+    'vehicle',
+    'insurable_object',
     'geographic_location',
     'location_address',
     'product',
