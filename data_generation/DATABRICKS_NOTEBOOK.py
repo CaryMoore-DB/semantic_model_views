@@ -99,16 +99,7 @@ print(f"Target: {CATALOG}.{SCHEMA}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 4b: Insurable Objects (Vehicles & Structures)
-
-# COMMAND ----------
-
-# MAGIC %run ./04b_generate_insurable_objects
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Step 5: Policy Data
+# MAGIC ## Step 5: Policy Data (includes Insurable Objects)
 
 # COMMAND ----------
 

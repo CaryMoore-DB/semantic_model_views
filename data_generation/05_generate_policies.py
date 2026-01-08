@@ -5,6 +5,7 @@
 """
 05 - Generate Policy Data for PCDM
 Creates: agreement, policy, policy_coverage_detail, policy_limit, policy_deductible
+        insurable_object, vehicle, structure, commercial_structure, residential_structure
 """
 
 # COMMAND ----------
@@ -69,6 +70,13 @@ def generate_policy_data(spark):
     policy_limits = []
     policy_deductibles = []
     agreement_party_roles = []
+    
+    # Insurable object lists
+    insurable_objects = []
+    vehicles = []
+    structures = []
+    commercial_structures = []
+    residential_structures = []
     
     print(f"\nGenerating {DATA_VOLUMES['policies']} policies...")
     
@@ -154,6 +162,71 @@ def generate_policy_data(spark):
         for coverage_id, coverage_part_code, coverage_name in selected_coverages:
             pcd_id = id_gen.next_id('policy_coverage_detail')
             
+            # Determine if this coverage needs an insurable object
+            insurable_object_id = None
+            
+            # Create vehicle for Auto coverages
+            if any(keyword in coverage_name for keyword in ['Auto', 'Vehicle', 'Collision', 'Comprehensive']):
+                insurable_object_id = id_gen.next_id('insurable_object')
+                vehicle_id = id_gen.next_id('vehicle')
+                
+                # Create insurable object
+                insurable_objects.append({
+                    'insurable_object_id': insurable_object_id,
+                    'insurable_object_type_code': 'VEHICLE',
+                    'geographic_location_id': geographic_location_id
+                })
+                
+                # Create vehicle
+                vehicle_make = random.choice(VEHICLE_MAKES)
+                vehicle_year = random.randint(2010, 2024)
+                
+                vehicles.append({
+                    'vehicle_id': vehicle_id,
+                    'insurable_object_id': insurable_object_id,
+                    'vehicle_make_name': vehicle_make,
+                    'vehicle_model_name': f"{vehicle_make} Model",
+                    'vehicle_model_year': vehicle_year,
+                    'vehicle_identification_number': f"VIN{insurable_object_id:010d}",
+                    'vehicle_type_code': random.choice(['SEDAN', 'SUV', 'TRUCK', 'VAN']),
+                })
+            
+            # Create structure for Property coverages
+            elif any(keyword in coverage_name for keyword in ['Property', 'Dwelling', 'Building', 'Homeowners', 'Commercial Property']):
+                insurable_object_id = id_gen.next_id('insurable_object')
+                structure_id = id_gen.next_id('structure')
+                
+                # Create insurable object
+                insurable_objects.append({
+                    'insurable_object_id': insurable_object_id,
+                    'insurable_object_type_code': 'STRUCTURE',
+                    'geographic_location_id': geographic_location_id
+                })
+                
+                # Create structure
+                is_commercial = 'Commercial' in coverage_name
+                
+                structures.append({
+                    'structure_id': structure_id,
+                    'insurable_object_id': insurable_object_id,
+                    'structure_type_code': random.choice(['SINGLE_FAMILY', 'MULTI_FAMILY', 'COMMERCIAL']) if not is_commercial else 'COMMERCIAL',
+                })
+                
+                # Create commercial or residential subtype
+                if is_commercial:
+                    commercial_structures.append({
+                        'commercial_structure_id': id_gen.next_id('commercial_structure'),
+                        'structure_id': structure_id,
+                        'business_type_code': random.choice(['OFFICE', 'RETAIL', 'WAREHOUSE', 'MANUFACTURING']),
+                    })
+                else:
+                    residential_structures.append({
+                        'residential_structure_id': id_gen.next_id('residential_structure'),
+                        'structure_id': structure_id,
+                        'occupancy_type_code': random.choice(['OWNER', 'TENANT', 'VACANT']),
+                    })
+            
+            # Create policy coverage detail with insurable_object_id
             policy_coverage_details.append({
                 'policy_coverage_detail_id': pcd_id,
                 'effective_date': effective_date,
@@ -163,6 +236,7 @@ def generate_policy_data(spark):
                 'expiration_date': expiration_date,
                 'coverage_inclusion_exclusion_code': 1,  # Inclusion
                 'coverage_description': coverage_name,
+                'insurable_object_id': insurable_object_id,  # Link to insurable object
             })
             
             # Add limit
@@ -217,7 +291,8 @@ def generate_policy_data(spark):
     df_pcd = create_dataframe(policy_coverage_details,
                               ['policy_coverage_detail_id', 'effective_date', 'policy_id',
                                'coverage_part_code', 'coverage_id', 'expiration_date', 
-                               'coverage_inclusion_exclusion_code', 'coverage_description'])
+                               'coverage_inclusion_exclusion_code', 'coverage_description',
+                               'insurable_object_id'])
     save_to_table(spark, df_pcd, 'policy_coverage_detail', catalog, schema)
     
     df_limit = create_dataframe(policy_limits,
@@ -232,6 +307,37 @@ def generate_policy_data(spark):
                                       'deductible_value'])
         save_to_table(spark, df_deduct, 'policy_deductible', catalog, schema)
     
+    # Save insurable objects
+    if insurable_objects:
+        df_insurable_object = create_dataframe(insurable_objects,
+                                               ['insurable_object_id', 'insurable_object_type_code',
+                                                'geographic_location_id'])
+        save_to_table(spark, df_insurable_object, 'insurable_object', catalog, schema)
+    
+    if vehicles:
+        df_vehicle = create_dataframe(vehicles,
+                                     ['vehicle_id', 'insurable_object_id', 'vehicle_make_name',
+                                      'vehicle_model_name', 'vehicle_model_year',
+                                      'vehicle_identification_number', 'vehicle_type_code'])
+        save_to_table(spark, df_vehicle, 'vehicle', catalog, schema)
+    
+    if structures:
+        df_structure = create_dataframe(structures,
+                                       ['structure_id', 'insurable_object_id', 'structure_type_code'])
+        save_to_table(spark, df_structure, 'structure', catalog, schema)
+    
+    if commercial_structures:
+        df_commercial_structure = create_dataframe(commercial_structures,
+                                                   ['commercial_structure_id', 'structure_id',
+                                                    'business_type_code'])
+        save_to_table(spark, df_commercial_structure, 'commercial_structure', catalog, schema)
+    
+    if residential_structures:
+        df_residential_structure = create_dataframe(residential_structures,
+                                                   ['residential_structure_id', 'structure_id',
+                                                    'occupancy_type_code'])
+        save_to_table(spark, df_residential_structure, 'residential_structure', catalog, schema)
+    
     print("\n" + "=" * 60)
     print("Policy Data Generation Complete!")
     print(f"  Agreements: {len(agreements)}")
@@ -239,6 +345,11 @@ def generate_policy_data(spark):
     print(f"  Coverage Details: {len(policy_coverage_details)}")
     print(f"  Limits: {len(policy_limits)}")
     print(f"  Deductibles: {len(policy_deductibles)}")
+    print(f"  Insurable Objects: {len(insurable_objects)}")
+    print(f"  Vehicles: {len(vehicles)}")
+    print(f"  Structures: {len(structures)}")
+    print(f"  Commercial Structures: {len(commercial_structures)}")
+    print(f"  Residential Structures: {len(residential_structures)}")
     print("=" * 60)
 
 # COMMAND ----------
