@@ -62,6 +62,13 @@ CREATE OR REFRESH STREAMING LIVE TABLE dim_group_source (
 )
 COMMENT "Source stream for group dimension changes"
 AS
+-- Add "No Group" record for referential integrity
+SELECT
+  0 as group_id,
+  'No Group' as group_name,
+  'NONE' as group_type
+UNION ALL
+-- Actual groups from source data
 SELECT
   g.grouping_id as group_id,
   p.party_name as group_name,
@@ -89,9 +96,10 @@ KEYS (group_id);
 CREATE OR REFRESH STREAMING LIVE TABLE dim_policy_source (
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
   CONSTRAINT valid_policy_number EXPECT (policy_number IS NOT NULL),
-  CONSTRAINT valid_effective_date EXPECT (effective_date IS NOT NULL)
+  CONSTRAINT valid_effective_date EXPECT (effective_date IS NOT NULL),
+  CONSTRAINT valid_group_id EXPECT (group_id IS NOT NULL)
 )
-COMMENT "Source stream for policy dimension changes"
+COMMENT "Source stream for policy dimension changes - includes group_id as parent dimension"
 AS
 SELECT
   pol.policy_id,
@@ -105,7 +113,7 @@ SELECT
   lob.line_of_business_code,
   ic.insurance_class_name,
   comp.company_name,
-  COALESCE(apr.party_id, 0) as group_id,
+  COALESCE(apr.party_id, 0) as group_id,  -- Foreign key to dim_group (0 = No Group)
   pol.geographic_location_id
 FROM cmoore_user.pcdm_test.policy pol
 JOIN cmoore_user.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
