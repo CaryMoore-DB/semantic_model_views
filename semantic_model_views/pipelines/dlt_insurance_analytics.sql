@@ -65,8 +65,7 @@ AS
 SELECT
   g.grouping_id as group_id,
   p.party_name as group_name,
-  p.party_type_code as group_type,
-  current_timestamp() as updated_timestamp
+  p.party_type_code as group_type
 FROM cmoore_user.pcdm_test.grouping g
 JOIN cmoore_user.pcdm_test.party p ON g.party_id = p.party_id;
 
@@ -77,8 +76,7 @@ CREATE OR REFRESH STREAMING LIVE TABLE dim_group;
 
 APPLY CHANGES INTO LIVE.dim_group
 FROM STREAM(LIVE.dim_group_source)
-KEYS (group_id)
-SEQUENCE BY updated_timestamp;
+KEYS (group_id);
 
 -- COMMAND ----------
 
