@@ -66,7 +66,7 @@ SELECT
   g.grouping_id as group_id,
   p.party_name as group_name,
   p.party_type_code as group_type,
-  current_timestamp() as updated_timestamp
+  current_timestamp() as updated_timestamp  -- No effective date in party/grouping tables
 FROM cmoore_user.pcdm_test.grouping g
 JOIN cmoore_user.pcdm_test.party p ON g.party_id = p.party_id;
 
@@ -91,7 +91,8 @@ STORED AS SCD TYPE 2;
 -- Source stream for policy dimension
 CREATE OR REFRESH STREAMING LIVE TABLE dim_policy_source (
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
-  CONSTRAINT valid_policy_number EXPECT (policy_number IS NOT NULL)
+  CONSTRAINT valid_policy_number EXPECT (policy_number IS NOT NULL),
+  CONSTRAINT valid_effective_date EXPECT (effective_date IS NOT NULL)
 )
 COMMENT "Source stream for policy dimension changes"
 AS
@@ -108,8 +109,7 @@ SELECT
   ic.insurance_class_name,
   comp.company_name,
   COALESCE(apr.party_id, 0) as group_id,
-  pol.geographic_location_id,
-  current_timestamp() as updated_timestamp
+  pol.geographic_location_id
 FROM cmoore_user.pcdm_test.policy pol
 JOIN cmoore_user.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
 JOIN cmoore_user.pcdm_test.product prod ON agr.product_id = prod.product_id
@@ -126,7 +126,7 @@ CREATE OR REFRESH STREAMING LIVE TABLE dim_policy;
 APPLY CHANGES INTO LIVE.dim_policy
 FROM STREAM(LIVE.dim_policy_source)
 KEYS (policy_id)
-SEQUENCE BY updated_timestamp
+SEQUENCE BY effective_date
 STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
@@ -145,7 +145,7 @@ SELECT
   pol.policy_id,
   'Unknown' as risk_type,
   'No insurable objects in dataset' as risk_description,
-  current_timestamp() as updated_timestamp
+  pol.effective_date
 FROM cmoore_user.pcdm_test.policy pol;
 
 -- COMMAND ----------
@@ -156,7 +156,7 @@ CREATE OR REFRESH STREAMING LIVE TABLE dim_risk;
 APPLY CHANGES INTO LIVE.dim_risk
 FROM STREAM(LIVE.dim_risk_source)
 KEYS (risk_id)
-SEQUENCE BY updated_timestamp
+SEQUENCE BY effective_date
 STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
@@ -169,7 +169,8 @@ STORED AS SCD TYPE 2;
 -- Source stream for claim dimension
 CREATE OR REFRESH STREAMING LIVE TABLE dim_claim_source (
   CONSTRAINT valid_claim_id EXPECT (claim_id IS NOT NULL),
-  CONSTRAINT valid_claim_number EXPECT (claim_number IS NOT NULL)
+  CONSTRAINT valid_claim_number EXPECT (claim_number IS NOT NULL),
+  CONSTRAINT valid_claim_reported_date EXPECT (claim_reported_date IS NOT NULL)
 )
 COMMENT "Source stream for claim dimension changes"
 AS
@@ -185,8 +186,7 @@ SELECT
   CASE WHEN c.catastrophe_id IS NOT NULL THEN 1 ELSE 0 END as is_catastrophe,
   cat.catastrophe_name,
   occ.occurrence_begin_date as occurrence_date,
-  occ.geographic_location_id as occurrence_location_id,
-  current_timestamp() as updated_timestamp
+  occ.geographic_location_id as occurrence_location_id
 FROM cmoore_user.pcdm_test.claim c
 JOIN cmoore_user.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
 LEFT JOIN cmoore_user.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id;
@@ -199,7 +199,7 @@ CREATE OR REFRESH STREAMING LIVE TABLE dim_claim;
 APPLY CHANGES INTO LIVE.dim_claim
 FROM STREAM(LIVE.dim_claim_source)
 KEYS (claim_id)
-SEQUENCE BY updated_timestamp
+SEQUENCE BY claim_reported_date
 STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
