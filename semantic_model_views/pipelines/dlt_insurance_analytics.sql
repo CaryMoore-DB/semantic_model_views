@@ -5,7 +5,7 @@
 -- MAGIC This notebook creates all dimension and fact tables for the insurance analytics star schema using DLT's native SCD Type 2 support.
 -- MAGIC 
 -- MAGIC ## Architecture
--- MAGIC - **Source**: PCDM tables in `main.pcdm_test`
+-- MAGIC - **Source**: PCDM tables in `cmoore_user.pcdm_test`
 -- MAGIC - **Target**: Star schema with SCD Type 2 dimensions using APPLY CHANGES INTO
 -- MAGIC - **Hierarchy**: Group (1:Many) -> Policy (1:Many) -> Risk
 
@@ -67,8 +67,8 @@ SELECT
   p.party_name as group_name,
   p.party_type_code as group_type,
   current_timestamp() as updated_timestamp
-FROM main.pcdm_test.grouping g
-JOIN main.pcdm_test.party p ON g.party_id = p.party_id;
+FROM cmoore_user.pcdm_test.grouping g
+JOIN cmoore_user.pcdm_test.party p ON g.party_id = p.party_id;
 
 -- COMMAND ----------
 
@@ -110,13 +110,13 @@ SELECT
   COALESCE(apr.party_id, 0) as group_id,
   pol.geographic_location_id,
   current_timestamp() as updated_timestamp
-FROM main.pcdm_test.policy pol
-JOIN main.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
-JOIN main.pcdm_test.product prod ON agr.product_id = prod.product_id
-JOIN main.pcdm_test.line_of_business lob ON prod.line_of_business_id = lob.line_of_business_id
-JOIN main.pcdm_test.insurance_class ic ON lob.insurance_class_id = ic.insurance_class_id
-LEFT JOIN main.pcdm_test.company comp ON comp.company_id = 1
-LEFT JOIN main.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP';
+FROM cmoore_user.pcdm_test.policy pol
+JOIN cmoore_user.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
+JOIN cmoore_user.pcdm_test.product prod ON agr.product_id = prod.product_id
+JOIN cmoore_user.pcdm_test.line_of_business lob ON prod.line_of_business_id = lob.line_of_business_id
+JOIN cmoore_user.pcdm_test.insurance_class ic ON lob.insurance_class_id = ic.insurance_class_id
+LEFT JOIN cmoore_user.pcdm_test.company comp ON comp.company_id = 1
+LEFT JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP';
 
 -- COMMAND ----------
 
@@ -146,7 +146,7 @@ SELECT
   'Unknown' as risk_type,
   'No insurable objects in dataset' as risk_description,
   current_timestamp() as updated_timestamp
-FROM main.pcdm_test.policy pol;
+FROM cmoore_user.pcdm_test.policy pol;
 
 -- COMMAND ----------
 
@@ -187,9 +187,9 @@ SELECT
   occ.occurrence_begin_date as occurrence_date,
   occ.geographic_location_id as occurrence_location_id,
   current_timestamp() as updated_timestamp
-FROM main.pcdm_test.claim c
-JOIN main.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
-LEFT JOIN main.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id;
+FROM cmoore_user.pcdm_test.claim c
+JOIN cmoore_user.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
+LEFT JOIN cmoore_user.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id;
 
 -- COMMAND ----------
 
@@ -326,13 +326,13 @@ SELECT
   pcd.coverage_part_code,
   1 as policy_count,
   current_timestamp() as load_date
-FROM main.pcdm_test.policy_coverage_detail pcd
-JOIN main.pcdm_test.policy pol ON pcd.policy_id = pol.policy_id
-JOIN main.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
-LEFT JOIN main.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
-JOIN main.pcdm_test.coverage cov ON pcd.coverage_id = cov.coverage_id
-LEFT JOIN main.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim.policy_coverage_detail_id
-LEFT JOIN main.pcdm_test.policy_deductible ded ON pcd.policy_coverage_detail_id = ded.policy_coverage_detail_id;
+FROM cmoore_user.pcdm_test.policy_coverage_detail pcd
+JOIN cmoore_user.pcdm_test.policy pol ON pcd.policy_id = pol.policy_id
+JOIN cmoore_user.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
+LEFT JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
+JOIN cmoore_user.pcdm_test.coverage cov ON pcd.coverage_id = cov.coverage_id
+LEFT JOIN cmoore_user.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim.policy_coverage_detail_id
+LEFT JOIN cmoore_user.pcdm_test.policy_deductible ded ON pcd.policy_coverage_detail_id = ded.policy_coverage_detail_id;
 
 -- COMMAND ----------
 
@@ -386,15 +386,15 @@ SELECT
   datediff(COALESCE(c.claim_close_date, current_date()), c.claim_open_date) as days_to_close,
   datediff(c.claim_reported_date, c.claim_open_date) as report_lag_days,
   current_timestamp() as load_date
-FROM main.pcdm_test.claim c
-JOIN main.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
-LEFT JOIN main.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id
-JOIN main.pcdm_test.claim_coverage cc ON c.claim_id = cc.claim_id
-JOIN main.pcdm_test.policy_coverage_detail pcd ON cc.policy_coverage_detail_id = pcd.policy_coverage_detail_id
-JOIN main.pcdm_test.policy pol ON pcd.policy_id = pol.policy_id
-JOIN main.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
-LEFT JOIN main.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
-LEFT JOIN main.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim.policy_coverage_detail_id;
+FROM cmoore_user.pcdm_test.claim c
+JOIN cmoore_user.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
+LEFT JOIN cmoore_user.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id
+JOIN cmoore_user.pcdm_test.claim_coverage cc ON c.claim_id = cc.claim_id
+JOIN cmoore_user.pcdm_test.policy_coverage_detail pcd ON cc.policy_coverage_detail_id = pcd.policy_coverage_detail_id
+JOIN cmoore_user.pcdm_test.policy pol ON pcd.policy_id = pol.policy_id
+JOIN cmoore_user.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
+LEFT JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
+LEFT JOIN cmoore_user.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim.policy_coverage_detail_id;
 
 -- COMMAND ----------
 
