@@ -130,20 +130,50 @@ STORED AS SCD TYPE 2;
 
 -- MAGIC %md
 -- MAGIC ### dim_risk - Risk Dimension (SCD Type 2)
+-- MAGIC 
+-- MAGIC Risk is based on policy_coverage_detail (the coverage on a specific insurable object).
+-- MAGIC This unions all insurable object types (vehicles, structures, etc.) into one dimension.
 
 -- COMMAND ----------
 
--- Source stream for risk dimension (stub - no insurable objects in dataset)
-CREATE OR REFRESH STREAMING LIVE TABLE dim_risk_source
-COMMENT "Source stream for risk dimension changes (stub)"
+-- Source stream for risk dimension
+CREATE OR REFRESH STREAMING LIVE TABLE dim_risk_source (
+  CONSTRAINT valid_risk_id EXPECT (risk_id IS NOT NULL),
+  CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL)
+)
+COMMENT "Source stream for risk dimension - based on policy_coverage_detail and insurable_objects"
 AS
 SELECT
-  pol.policy_id as risk_id,
-  pol.policy_id,
-  'Unknown' as risk_type,
-  'No insurable objects in dataset' as risk_description,
-  pol.effective_date
-FROM cmoore_user.pcdm_test.policy pol;
+  pcd.policy_coverage_detail_id as risk_id,
+  pcd.policy_id,
+  pcd.coverage_id,
+  cov.coverage_name,
+  COALESCE(io.insurable_object_type_code, 0) as insurable_object_type_code,
+  CASE 
+    WHEN io.insurable_object_type_code IS NULL THEN 'No Insurable Object'
+    WHEN v.vehicle_id IS NOT NULL THEN 'Vehicle'
+    WHEN s.structure_id IS NOT NULL THEN 'Structure'
+    ELSE 'Other'
+  END as risk_type,
+  COALESCE(v.vehicle_make_name, 'N/A') as vehicle_make,
+  COALESCE(v.vehicle_model_name, 'N/A') as vehicle_model,
+  COALESCE(v.vehicle_model_year, 0) as vehicle_year,
+  COALESCE(v.vehicle_identification_number, 'N/A') as vehicle_vin,
+  CASE 
+    WHEN cs.commercial_structure_id IS NOT NULL THEN 'Commercial'
+    WHEN rs.residential_structure_id IS NOT NULL THEN 'Residential'
+    WHEN s.structure_id IS NOT NULL THEN 'Other Structure'
+    ELSE 'N/A'
+  END as structure_type,
+  io.geographic_location_id as risk_location_id,
+  pcd.effective_date
+FROM cmoore_user.pcdm_test.policy_coverage_detail pcd
+JOIN cmoore_user.pcdm_test.coverage cov ON pcd.coverage_id = cov.coverage_id
+LEFT JOIN cmoore_user.pcdm_test.insurable_object io ON pcd.insurable_object_id = io.insurable_object_id
+LEFT JOIN cmoore_user.pcdm_test.vehicle v ON io.insurable_object_id = v.insurable_object_id
+LEFT JOIN cmoore_user.pcdm_test.structure s ON io.insurable_object_id = s.insurable_object_id
+LEFT JOIN cmoore_user.pcdm_test.commercial_structure cs ON s.structure_id = cs.structure_id
+LEFT JOIN cmoore_user.pcdm_test.residential_structure rs ON s.structure_id = rs.structure_id;
 
 -- COMMAND ----------
 
@@ -263,6 +293,7 @@ SELECT
 
 CREATE OR REFRESH LIVE TABLE fact_premium_payments (
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
+  CONSTRAINT valid_risk_id EXPECT (risk_id IS NOT NULL),
   CONSTRAINT valid_premium_amount EXPECT (premium_amount >= 0),
   CONSTRAINT valid_date_key EXPECT (transaction_date_key IS NOT NULL)
 )
@@ -271,6 +302,7 @@ AS
 SELECT
   pol.policy_id,
   COALESCE(apr.party_id, 0) as group_id,
+  pcd.policy_coverage_detail_id as risk_id,
   CAST(date_format(pcd.effective_date, 'yyyyMMdd') AS INT) as transaction_date_key,
   CAST(date_format(pol.effective_date, 'yyyyMMdd') AS INT) as policy_effective_date_key,
   CAST(date_format(pol.expiration_date, 'yyyyMMdd') AS INT) as policy_expiration_date_key,
@@ -305,6 +337,7 @@ LEFT JOIN cmoore_user.pcdm_test.policy_deductible ded ON pcd.policy_coverage_det
 CREATE OR REFRESH LIVE TABLE fact_claims (
   CONSTRAINT valid_claim_id EXPECT (claim_id IS NOT NULL),
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
+  CONSTRAINT valid_risk_id EXPECT (risk_id IS NOT NULL),
   CONSTRAINT valid_date_key EXPECT (claim_date_key IS NOT NULL)
 )
 COMMENT "Claims fact table"
@@ -313,6 +346,7 @@ SELECT
   c.claim_id,
   pol.policy_id,
   COALESCE(apr.party_id, 0) as group_id,
+  pcd.policy_coverage_detail_id as risk_id,
   0 as attorney_id,
   0 as court_id,
   0 as outcome_id,
