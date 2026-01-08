@@ -1,25 +1,25 @@
--- Databricks notebook source
--- MAGIC %md
--- MAGIC # Insurance Analytics - Delta Live Tables Pipeline (SQL)
--- MAGIC 
--- MAGIC This notebook creates all dimension and fact tables for the insurance analytics star schema using DLT's native SCD Type 2 support.
--- MAGIC 
--- MAGIC ## Architecture
--- MAGIC - **Source**: PCDM tables in `cmoore_user.pcdm_test`
--- MAGIC - **Target**: Star schema with SCD Type 2 dimensions using APPLY CHANGES INTO
--- MAGIC - **Hierarchy**: Group (1:Many) -> Policy (1:Many) -> Risk
+-- ============================================================================
+-- Insurance Analytics - Delta Live Tables Pipeline (SQL)
+-- ============================================================================
+-- 
+-- This SQL file creates all dimension and fact tables for the insurance 
+-- analytics star schema using DLT's native SCD Type 2 support.
+-- 
+-- Architecture:
+--   - Source: PCDM tables in cmoore_user.pcdm_test
+--   - Target: Star schema with SCD Type 2 dimensions using APPLY CHANGES INTO
+--   - Hierarchy: Group (1:Many) -> Policy (1:Many) -> Risk
+--   - Grouping resolved through party_relationship table
+-- 
+-- ============================================================================
 
--- COMMAND ----------
+-- ============================================================================
+-- DIMENSION TABLES WITH SCD TYPE 2
+-- ============================================================================
 
--- MAGIC %md
--- MAGIC ## Dimension Tables with SCD Type 2
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ### dim_date - Date Dimension (Type 1 - Static)
-
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- dim_date - Date Dimension (Type 1 - Static)
+-- ----------------------------------------------------------------------------
 
 CREATE OR REFRESH LIVE TABLE dim_date (
   CONSTRAINT valid_date_key EXPECT (date_key IS NOT NULL),
@@ -49,12 +49,9 @@ FROM (
   SELECT explode(sequence(to_date('2020-01-01'), to_date('2030-12-31'), interval 1 day)) as date_seq
 );
 
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ### dim_group - Group Dimension (SCD Type 1 with APPLY CHANGES)
-
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- dim_group - Group Dimension (SCD Type 1 with APPLY CHANGES)
+-- ----------------------------------------------------------------------------
 
 -- Source stream for group dimension
 CREATE OR REFRESH STREAMING LIVE TABLE dim_group_source (
@@ -76,21 +73,17 @@ SELECT
 FROM cmoore_user.pcdm_test.grouping g
 JOIN cmoore_user.pcdm_test.party p ON g.party_id = p.party_id;
 
--- COMMAND ----------
-
 -- Apply changes with SCD Type 1 (upsert without history)
 CREATE OR REFRESH STREAMING LIVE TABLE dim_group;
 
-APPLY CHANGES INTO LIVE.dim_group
+APPLY CHANGES INTO dim_group
 FROM STREAM(LIVE.dim_group_source)
 KEYS (group_id);
 
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ### dim_policy - Policy Dimension (SCD Type 2)
-
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- dim_policy - Policy Dimension (SCD Type 2)
+-- Resolves group through party_relationship table
+-- ----------------------------------------------------------------------------
 
 -- Source stream for policy dimension
 CREATE OR REFRESH STREAMING LIVE TABLE dim_policy_source (
@@ -99,7 +92,7 @@ CREATE OR REFRESH STREAMING LIVE TABLE dim_policy_source (
   CONSTRAINT valid_effective_date EXPECT (effective_date IS NOT NULL),
   CONSTRAINT valid_group_id EXPECT (group_id IS NOT NULL)
 )
-COMMENT "Source stream for policy dimension changes - includes group_id as parent dimension"
+COMMENT "Source stream for policy dimension changes - group resolved via party_relationship"
 AS
 SELECT
   pol.policy_id,
@@ -113,36 +106,34 @@ SELECT
   lob.line_of_business_code,
   ic.insurance_class_name,
   comp.company_name,
-  COALESCE(apr.party_id, 0) as group_id,  -- Foreign key to dim_group (0 = No Group)
+  -- Resolve group through party_relationship (MEMBER_OF relationship)
+  COALESCE(pr.related_party_id, 0) as group_id,  -- Foreign key to dim_group (0 = No Group)
   pol.geographic_location_id
 FROM cmoore_user.pcdm_test.policy pol
 JOIN cmoore_user.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
+-- Get the policyholder (INSURED) from agreement_party_role
+JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'INSURED'
+-- Find group membership through party_relationship
+LEFT JOIN cmoore_user.pcdm_test.party_relationship pr ON apr.party_id = pr.party_id AND pr.relationship_type_code = 'MEMBER_OF'
 JOIN cmoore_user.pcdm_test.product prod ON agr.product_id = prod.product_id
 JOIN cmoore_user.pcdm_test.line_of_business lob ON prod.line_of_business_id = lob.line_of_business_id
 JOIN cmoore_user.pcdm_test.insurance_class ic ON lob.insurance_class_id = ic.insurance_class_id
-LEFT JOIN cmoore_user.pcdm_test.company comp ON comp.company_id = 1
-LEFT JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP';
-
--- COMMAND ----------
+LEFT JOIN cmoore_user.pcdm_test.company comp ON comp.company_id = 1;
 
 -- Apply SCD Type 2 to dim_policy
 CREATE OR REFRESH STREAMING LIVE TABLE dim_policy;
 
-APPLY CHANGES INTO LIVE.dim_policy
+APPLY CHANGES INTO dim_policy
 FROM STREAM(LIVE.dim_policy_source)
 KEYS (policy_id)
 SEQUENCE BY effective_date
 STORED AS SCD TYPE 2;
 
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ### dim_risk - Risk Dimension (SCD Type 2)
--- MAGIC 
--- MAGIC Risk is based on policy_coverage_detail (the coverage on a specific insurable object).
--- MAGIC This unions all insurable object types (vehicles, structures, etc.) into one dimension.
-
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- dim_risk - Risk Dimension (SCD Type 2)
+-- Risk is based on policy_coverage_detail (the coverage on a specific insurable object)
+-- This unions all insurable object types (vehicles, structures, etc.) into one dimension
+-- ----------------------------------------------------------------------------
 
 -- Source stream for risk dimension
 CREATE OR REFRESH STREAMING LIVE TABLE dim_risk_source (
@@ -183,23 +174,18 @@ LEFT JOIN cmoore_user.pcdm_test.structure s ON io.insurable_object_id = s.insura
 LEFT JOIN cmoore_user.pcdm_test.commercial_structure cs ON s.structure_id = cs.structure_id
 LEFT JOIN cmoore_user.pcdm_test.residential_structure rs ON s.structure_id = rs.structure_id;
 
--- COMMAND ----------
-
 -- Apply SCD Type 2 to dim_risk
 CREATE OR REFRESH STREAMING LIVE TABLE dim_risk;
 
-APPLY CHANGES INTO LIVE.dim_risk
+APPLY CHANGES INTO dim_risk
 FROM STREAM(LIVE.dim_risk_source)
 KEYS (risk_id)
 SEQUENCE BY effective_date
 STORED AS SCD TYPE 2;
 
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ### dim_claim - Claim Dimension (SCD Type 2)
-
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- dim_claim - Claim Dimension (SCD Type 2)
+-- ----------------------------------------------------------------------------
 
 -- Source stream for claim dimension
 CREATE OR REFRESH STREAMING LIVE TABLE dim_claim_source (
@@ -226,25 +212,19 @@ FROM cmoore_user.pcdm_test.claim c
 JOIN cmoore_user.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
 LEFT JOIN cmoore_user.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id;
 
--- COMMAND ----------
-
 -- Apply SCD Type 2 to dim_claim
 CREATE OR REFRESH STREAMING LIVE TABLE dim_claim;
 
-APPLY CHANGES INTO LIVE.dim_claim
+APPLY CHANGES INTO dim_claim
 FROM STREAM(LIVE.dim_claim_source)
 KEYS (claim_id)
 SEQUENCE BY claim_reported_date
 STORED AS SCD TYPE 2;
 
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- dim_attorney - Attorney Dimension (Static stub)
+-- ----------------------------------------------------------------------------
 
--- MAGIC %md
--- MAGIC ### dim_attorney - Attorney Dimension (Static stub)
-
--- COMMAND ----------
-
--- dim_attorney - Static stub (no attorney data in PCDM)
 CREATE OR REFRESH LIVE TABLE dim_attorney
 COMMENT "Attorney dimension stub - static record"
 AS
@@ -254,14 +234,10 @@ SELECT
   'Unknown' as law_firm,
   'Unknown' as attorney_type;
 
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- dim_court - Court Dimension (Static stub)
+-- ----------------------------------------------------------------------------
 
--- MAGIC %md
--- MAGIC ### dim_court - Court Dimension (Static stub)
-
--- COMMAND ----------
-
--- dim_court - Static stub (no court data in PCDM)
 CREATE OR REFRESH LIVE TABLE dim_court
 COMMENT "Court dimension stub - static record"
 AS
@@ -271,14 +247,10 @@ SELECT
   'Unknown' as court_type,
   'Unknown' as jurisdiction;
 
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- dim_outcome - Outcome Dimension (Static stub)
+-- ----------------------------------------------------------------------------
 
--- MAGIC %md
--- MAGIC ### dim_outcome - Outcome Dimension (Static stub)
-
--- COMMAND ----------
-
--- dim_outcome - Static stub (no outcome data in PCDM)
 CREATE OR REFRESH LIVE TABLE dim_outcome
 COMMENT "Outcome dimension stub - static record"
 AS
@@ -287,17 +259,14 @@ SELECT
   'Unknown' as outcome_type,
   'Unknown' as outcome_description;
 
--- COMMAND ----------
+-- ============================================================================
+-- FACT TABLES
+-- ============================================================================
 
--- MAGIC %md
--- MAGIC ## Fact Tables
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ### fact_premium_payments - Premium Payments Fact
-
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- fact_premium_payments - Premium Payments Fact
+-- Group resolved through party_relationship
+-- ----------------------------------------------------------------------------
 
 CREATE OR REFRESH LIVE TABLE fact_premium_payments (
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
@@ -305,11 +274,12 @@ CREATE OR REFRESH LIVE TABLE fact_premium_payments (
   CONSTRAINT valid_premium_amount EXPECT (premium_amount >= 0),
   CONSTRAINT valid_date_key EXPECT (transaction_date_key IS NOT NULL)
 )
-COMMENT "Premium payments fact table"
+COMMENT "Premium payments fact table - group resolved via party_relationship"
 AS
 SELECT
   pol.policy_id,
-  COALESCE(apr.party_id, 0) as group_id,
+  -- Resolve group through party_relationship (MEMBER_OF relationship)
+  COALESCE(pr.related_party_id, 0) as group_id,
   pcd.policy_coverage_detail_id as risk_id,
   CAST(date_format(pcd.effective_date, 'yyyyMMdd') AS INT) as transaction_date_key,
   CAST(date_format(pol.effective_date, 'yyyyMMdd') AS INT) as policy_effective_date_key,
@@ -330,17 +300,18 @@ SELECT
 FROM cmoore_user.pcdm_test.policy_coverage_detail pcd
 JOIN cmoore_user.pcdm_test.policy pol ON pcd.policy_id = pol.policy_id
 JOIN cmoore_user.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
-LEFT JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
+-- Get the policyholder (INSURED) from agreement_party_role
+JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'INSURED'
+-- Find group membership through party_relationship
+LEFT JOIN cmoore_user.pcdm_test.party_relationship pr ON apr.party_id = pr.party_id AND pr.relationship_type_code = 'MEMBER_OF'
 JOIN cmoore_user.pcdm_test.coverage cov ON pcd.coverage_id = cov.coverage_id
 LEFT JOIN cmoore_user.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim.policy_coverage_detail_id
 LEFT JOIN cmoore_user.pcdm_test.policy_deductible ded ON pcd.policy_coverage_detail_id = ded.policy_coverage_detail_id;
 
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ### fact_claims - Claims Fact
-
--- COMMAND ----------
+-- ----------------------------------------------------------------------------
+-- fact_claims - Claims Fact
+-- Group resolved through party_relationship
+-- ----------------------------------------------------------------------------
 
 CREATE OR REFRESH LIVE TABLE fact_claims (
   CONSTRAINT valid_claim_id EXPECT (claim_id IS NOT NULL),
@@ -348,12 +319,13 @@ CREATE OR REFRESH LIVE TABLE fact_claims (
   CONSTRAINT valid_risk_id EXPECT (risk_id IS NOT NULL),
   CONSTRAINT valid_date_key EXPECT (claim_date_key IS NOT NULL)
 )
-COMMENT "Claims fact table"
+COMMENT "Claims fact table - group resolved via party_relationship"
 AS
 SELECT
   c.claim_id,
   pol.policy_id,
-  COALESCE(apr.party_id, 0) as group_id,
+  -- Resolve group through party_relationship (MEMBER_OF relationship)
+  COALESCE(pr.related_party_id, 0) as group_id,
   pcd.policy_coverage_detail_id as risk_id,
   0 as attorney_id,
   0 as court_id,
@@ -396,18 +368,23 @@ JOIN cmoore_user.pcdm_test.claim_coverage cc ON c.claim_id = cc.claim_id
 JOIN cmoore_user.pcdm_test.policy_coverage_detail pcd ON cc.policy_coverage_detail_id = pcd.policy_coverage_detail_id
 JOIN cmoore_user.pcdm_test.policy pol ON pcd.policy_id = pol.policy_id
 JOIN cmoore_user.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
-LEFT JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
+-- Get the policyholder (INSURED) from agreement_party_role
+JOIN cmoore_user.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'INSURED'
+-- Find group membership through party_relationship
+LEFT JOIN cmoore_user.pcdm_test.party_relationship pr ON apr.party_id = pr.party_id AND pr.relationship_type_code = 'MEMBER_OF'
 LEFT JOIN cmoore_user.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim.policy_coverage_detail_id;
 
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ## Pipeline Complete
--- MAGIC 
--- MAGIC All dimension and fact tables have been created with:
--- MAGIC - **SCD Type 2** for dimensions with business effective dates (policy, risk, claim)
--- MAGIC - **SCD Type 1** for dimensions without effective dates (group) - simple overwrite
--- MAGIC - **Static tables** for stub dimensions (attorney, court, outcome)
--- MAGIC - **Automatic tracking** of `__START_AT`, `__END_AT`, `__CURRENT` for SCD Type 2 tables
--- MAGIC - **Data quality expectations** on all tables
--- MAGIC - **Business date sequencing** for proper historical tracking
+-- ============================================================================
+-- PIPELINE COMPLETE
+-- ============================================================================
+-- 
+-- All dimension and fact tables have been created with:
+--   - SCD Type 2 for dimensions with business effective dates (policy, risk, claim)
+--   - SCD Type 1 for dimensions without effective dates (group) - simple overwrite
+--   - Static tables for stub dimensions (attorney, court, outcome)
+--   - Automatic tracking of __START_AT, __END_AT, __CURRENT for SCD Type 2 tables
+--   - Data quality expectations on all tables
+--   - Business date sequencing for proper historical tracking
+--   - Group membership resolved through party_relationship table (MEMBER_OF)
+-- 
+-- ============================================================================

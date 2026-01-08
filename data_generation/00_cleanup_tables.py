@@ -38,6 +38,7 @@ tables_to_drop = [
     'agreement_party_role',
     'policy',
     'agreement',
+    'party_relationship',  # Party relationships
     'geographic_location',
     'location_address',
     'product',

@@ -72,6 +72,15 @@ print(f"Target: {CATALOG}.{SCHEMA}")
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Step 2b: Party Relationship Data
+
+# COMMAND ----------
+
+# MAGIC %run ./02b_generate_party_relationships
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Step 3: Geographic Location Data
 
 # COMMAND ----------
@@ -125,6 +134,7 @@ summary_queries = [
     ("Parties", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.party"),
     ("Persons", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.person"),
     ("Organizations", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.organization"),
+    ("Party Relationships", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.party_relationship"),
     ("Geographic Locations", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.geographic_location"),
     ("Products", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.product"),
     ("Policies", f"SELECT COUNT(*) as count FROM {CATALOG}.{SCHEMA}.policy"),

@@ -22,6 +22,7 @@ DATA_VOLUMES = {
     'organizations': 500,
     'households': 1500,
     'professional_groups': 50,
+    'party_relationship_percentage': 0.30,  # 30% of persons belong to groups
     
     # Geographic locations
     'location_addresses': 5000,
