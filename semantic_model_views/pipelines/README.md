@@ -1,8 +1,37 @@
 # Delta Live Tables Pipelines - Insurance Analytics
 
+## ⭐ RECOMMENDED: SQL-Based DLT Pipeline
+
+**Use `dlt_insurance_analytics.sql`** - A single, unified SQL-based DLT notebook.
+
+### Why SQL?
+- ✅ **Simpler**: Declarative SQL syntax vs complex Python
+- ✅ **Faster**: Better performance for transformations
+- ✅ **Easier**: Native DLT SQL support
+- ✅ **All-in-one**: Single notebook for all dimensions and facts
+
+### Quick Start with SQL Pipeline
+
+1. Open **Databricks Workflows** → **Delta Live Tables**
+2. Click **Create Pipeline**
+3. Configure:
+   - **Name**: `insurance_analytics_pipeline`
+   - **Notebook**: Select `dlt_insurance_analytics.sql`
+   - **Target**: `main.insurance_analytics` (your schema)
+   - **Cluster**: Enhanced Autoscaling
+4. Click **Start**
+
+That's it! The pipeline creates all tables automatically.
+
+---
+
 ## Overview
 
 This directory contains **Delta Live Tables (DLT)** pipelines for building the insurance analytics dimensional model with **SCD Type 2** support and comprehensive **data quality expectations**.
+
+### Available Approaches
+1. **SQL Pipeline** (⭐ Recommended): `dlt_insurance_analytics.sql` - Single unified notebook
+2. **Python Pipelines**: Individual `.py` files for each table (legacy/reference)
 
 ## Architecture
 
