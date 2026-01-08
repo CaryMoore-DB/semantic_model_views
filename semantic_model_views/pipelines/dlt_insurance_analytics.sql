@@ -2,36 +2,22 @@
 -- MAGIC %md
 -- MAGIC # Insurance Analytics - Delta Live Tables Pipeline (SQL)
 -- MAGIC 
--- MAGIC This notebook creates all dimension and fact tables for the insurance analytics star schema.
+-- MAGIC This notebook creates all dimension and fact tables for the insurance analytics star schema using DLT's native SCD Type 2 support.
 -- MAGIC 
 -- MAGIC ## Architecture
 -- MAGIC - **Source**: PCDM tables in `main.pcdm_test`
--- MAGIC - **Target**: Star schema with SCD Type 2 dimensions
+-- MAGIC - **Target**: Star schema with SCD Type 2 dimensions using APPLY CHANGES INTO
 -- MAGIC - **Hierarchy**: Group (1:Many) -> Policy (1:Many) -> Risk
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ## Configuration
-
--- COMMAND ----------
-
--- Set source catalog and schema
-CREATE OR REFRESH STREAMING LIVE TABLE config AS
-SELECT 
-  'main' as source_catalog,
-  'pcdm_test' as source_schema,
-  current_timestamp() as pipeline_run_time;
+-- MAGIC ## Dimension Tables with SCD Type 2
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ## Dimension Tables
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ### dim_date - Date Dimension
+-- MAGIC ### dim_date - Date Dimension (Type 1 - Static)
 
 -- COMMAND ----------
 
@@ -70,25 +56,30 @@ FROM (
 
 -- COMMAND ----------
 
-CREATE OR REFRESH LIVE TABLE dim_group (
-  CONSTRAINT valid_group_key EXPECT (group_key IS NOT NULL),
-  CONSTRAINT valid_group_id EXPECT (group_id IS NOT NULL),
-  CONSTRAINT valid_current_flag EXPECT (is_current IN (0, 1))
+-- Source stream for group dimension
+CREATE OR REFRESH STREAMING LIVE TABLE dim_group_source (
+  CONSTRAINT valid_group_id EXPECT (group_id IS NOT NULL)
 )
-COMMENT "Group dimension with SCD Type 2 - top of policy hierarchy"
+COMMENT "Source stream for group dimension changes"
 AS
 SELECT
-  monotonically_increasing_id() as group_key,
   g.grouping_id as group_id,
   p.party_name as group_name,
   p.party_type_code as group_type,
-  current_date() as effective_begin_date,
-  to_date('9999-12-31') as effective_end_date,
-  1 as is_current,
-  current_timestamp() as created_date,
-  current_timestamp() as last_modified_date
+  current_timestamp() as updated_timestamp
 FROM main.pcdm_test.grouping g
 JOIN main.pcdm_test.party p ON g.party_id = p.party_id;
+
+-- COMMAND ----------
+
+-- Apply SCD Type 2 to dim_group
+CREATE OR REFRESH STREAMING LIVE TABLE dim_group;
+
+APPLY CHANGES INTO LIVE.dim_group
+FROM STREAM(LIVE.dim_group_source)
+KEYS (group_id)
+SEQUENCE BY updated_timestamp
+STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
 
@@ -97,17 +88,14 @@ JOIN main.pcdm_test.party p ON g.party_id = p.party_id;
 
 -- COMMAND ----------
 
-CREATE OR REFRESH LIVE TABLE dim_policy (
-  CONSTRAINT valid_policy_key EXPECT (policy_key IS NOT NULL),
+-- Source stream for policy dimension
+CREATE OR REFRESH STREAMING LIVE TABLE dim_policy_source (
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
-  CONSTRAINT valid_policy_number EXPECT (policy_number IS NOT NULL),
-  CONSTRAINT valid_dates EXPECT (effective_date <= expiration_date),
-  CONSTRAINT valid_current_flag EXPECT (is_current IN (0, 1))
+  CONSTRAINT valid_policy_number EXPECT (policy_number IS NOT NULL)
 )
-COMMENT "Policy dimension with SCD Type 2 - middle of hierarchy"
+COMMENT "Source stream for policy dimension changes"
 AS
 SELECT
-  monotonically_increasing_id() as policy_key,
   pol.policy_id,
   pol.policy_number,
   pol.effective_date,
@@ -119,21 +107,27 @@ SELECT
   lob.line_of_business_code,
   ic.insurance_class_name,
   comp.company_name,
-  COALESCE(dg.group_key, 0) as group_key,
+  COALESCE(apr.party_id, 0) as group_id,
   pol.geographic_location_id,
-  current_date() as effective_begin_date,
-  to_date('9999-12-31') as effective_end_date,
-  1 as is_current,
-  current_timestamp() as created_date,
-  current_timestamp() as last_modified_date
+  current_timestamp() as updated_timestamp
 FROM main.pcdm_test.policy pol
 JOIN main.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
 JOIN main.pcdm_test.product prod ON agr.product_id = prod.product_id
 JOIN main.pcdm_test.line_of_business lob ON prod.line_of_business_id = lob.line_of_business_id
 JOIN main.pcdm_test.insurance_class ic ON lob.insurance_class_id = ic.insurance_class_id
 LEFT JOIN main.pcdm_test.company comp ON comp.company_id = 1
-LEFT JOIN main.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
-LEFT JOIN LIVE.dim_group dg ON apr.party_id = dg.group_id AND dg.is_current = 1;
+LEFT JOIN main.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP';
+
+-- COMMAND ----------
+
+-- Apply SCD Type 2 to dim_policy
+CREATE OR REFRESH STREAMING LIVE TABLE dim_policy;
+
+APPLY CHANGES INTO LIVE.dim_policy
+FROM STREAM(LIVE.dim_policy_source)
+KEYS (policy_id)
+SEQUENCE BY updated_timestamp
+STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
 
@@ -142,25 +136,28 @@ LEFT JOIN LIVE.dim_group dg ON apr.party_id = dg.group_id AND dg.is_current = 1;
 
 -- COMMAND ----------
 
-CREATE OR REFRESH LIVE TABLE dim_risk (
-  CONSTRAINT valid_risk_key EXPECT (risk_key IS NOT NULL),
-  CONSTRAINT valid_current_flag EXPECT (is_current IN (0, 1))
-)
-COMMENT "Risk dimension with SCD Type 2 - bottom of hierarchy (stub for now)"
+-- Source stream for risk dimension (stub - no insurable objects in dataset)
+CREATE OR REFRESH STREAMING LIVE TABLE dim_risk_source
+COMMENT "Source stream for risk dimension changes (stub)"
 AS
 SELECT
-  monotonically_increasing_id() as risk_key,
+  pol.policy_id as risk_id,
   pol.policy_id,
-  dp.policy_key,
   'Unknown' as risk_type,
   'No insurable objects in dataset' as risk_description,
-  current_date() as effective_begin_date,
-  to_date('9999-12-31') as effective_end_date,
-  1 as is_current,
-  current_timestamp() as created_date,
-  current_timestamp() as last_modified_date
-FROM main.pcdm_test.policy pol
-JOIN LIVE.dim_policy dp ON pol.policy_id = dp.policy_id AND dp.is_current = 1;
+  current_timestamp() as updated_timestamp
+FROM main.pcdm_test.policy pol;
+
+-- COMMAND ----------
+
+-- Apply SCD Type 2 to dim_risk
+CREATE OR REFRESH STREAMING LIVE TABLE dim_risk;
+
+APPLY CHANGES INTO LIVE.dim_risk
+FROM STREAM(LIVE.dim_risk_source)
+KEYS (risk_id)
+SEQUENCE BY updated_timestamp
+STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
 
@@ -169,16 +166,14 @@ JOIN LIVE.dim_policy dp ON pol.policy_id = dp.policy_id AND dp.is_current = 1;
 
 -- COMMAND ----------
 
-CREATE OR REFRESH LIVE TABLE dim_claim (
-  CONSTRAINT valid_claim_key EXPECT (claim_key IS NOT NULL),
+-- Source stream for claim dimension
+CREATE OR REFRESH STREAMING LIVE TABLE dim_claim_source (
   CONSTRAINT valid_claim_id EXPECT (claim_id IS NOT NULL),
-  CONSTRAINT valid_claim_number EXPECT (claim_number IS NOT NULL),
-  CONSTRAINT valid_current_flag EXPECT (is_current IN (0, 1))
+  CONSTRAINT valid_claim_number EXPECT (claim_number IS NOT NULL)
 )
-COMMENT "Claim dimension with SCD Type 2"
+COMMENT "Source stream for claim dimension changes"
 AS
 SELECT
-  monotonically_increasing_id() as claim_key,
   c.claim_id,
   c.company_claim_number as claim_number,
   c.claim_description,
@@ -191,14 +186,21 @@ SELECT
   cat.catastrophe_name,
   occ.occurrence_begin_date as occurrence_date,
   occ.geographic_location_id as occurrence_location_id,
-  current_date() as effective_begin_date,
-  to_date('9999-12-31') as effective_end_date,
-  1 as is_current,
-  current_timestamp() as created_date,
-  current_timestamp() as last_modified_date
+  current_timestamp() as updated_timestamp
 FROM main.pcdm_test.claim c
 JOIN main.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
 LEFT JOIN main.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id;
+
+-- COMMAND ----------
+
+-- Apply SCD Type 2 to dim_claim
+CREATE OR REFRESH STREAMING LIVE TABLE dim_claim;
+
+APPLY CHANGES INTO LIVE.dim_claim
+FROM STREAM(LIVE.dim_claim_source)
+KEYS (claim_id)
+SEQUENCE BY updated_timestamp
+STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
 
@@ -207,23 +209,27 @@ LEFT JOIN main.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_i
 
 -- COMMAND ----------
 
-CREATE OR REFRESH LIVE TABLE dim_attorney (
-  CONSTRAINT valid_attorney_key EXPECT (attorney_key IS NOT NULL),
-  CONSTRAINT valid_current_flag EXPECT (is_current IN (0, 1))
-)
-COMMENT "Attorney dimension with SCD Type 2 (stub - no attorney data in PCDM)"
+-- Source stream for attorney dimension (stub - no attorney data in PCDM)
+CREATE OR REFRESH STREAMING LIVE TABLE dim_attorney_source
+COMMENT "Source stream for attorney dimension changes (stub)"
 AS
 SELECT
-  0 as attorney_key,
   0 as attorney_id,
   'Unknown' as attorney_name,
   'Unknown' as law_firm,
   'Unknown' as attorney_type,
-  current_date() as effective_begin_date,
-  to_date('9999-12-31') as effective_end_date,
-  1 as is_current,
-  current_timestamp() as created_date,
-  current_timestamp() as last_modified_date;
+  current_timestamp() as updated_timestamp;
+
+-- COMMAND ----------
+
+-- Apply SCD Type 2 to dim_attorney
+CREATE OR REFRESH STREAMING LIVE TABLE dim_attorney;
+
+APPLY CHANGES INTO LIVE.dim_attorney
+FROM STREAM(LIVE.dim_attorney_source)
+KEYS (attorney_id)
+SEQUENCE BY updated_timestamp
+STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
 
@@ -232,23 +238,27 @@ SELECT
 
 -- COMMAND ----------
 
-CREATE OR REFRESH LIVE TABLE dim_court (
-  CONSTRAINT valid_court_key EXPECT (court_key IS NOT NULL),
-  CONSTRAINT valid_current_flag EXPECT (is_current IN (0, 1))
-)
-COMMENT "Court dimension with SCD Type 2 (stub - no court data in PCDM)"
+-- Source stream for court dimension (stub - no court data in PCDM)
+CREATE OR REFRESH STREAMING LIVE TABLE dim_court_source
+COMMENT "Source stream for court dimension changes (stub)"
 AS
 SELECT
-  0 as court_key,
   0 as court_id,
   'Unknown' as court_name,
   'Unknown' as court_type,
   'Unknown' as jurisdiction,
-  current_date() as effective_begin_date,
-  to_date('9999-12-31') as effective_end_date,
-  1 as is_current,
-  current_timestamp() as created_date,
-  current_timestamp() as last_modified_date;
+  current_timestamp() as updated_timestamp;
+
+-- COMMAND ----------
+
+-- Apply SCD Type 2 to dim_court
+CREATE OR REFRESH STREAMING LIVE TABLE dim_court;
+
+APPLY CHANGES INTO LIVE.dim_court
+FROM STREAM(LIVE.dim_court_source)
+KEYS (court_id)
+SEQUENCE BY updated_timestamp
+STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
 
@@ -257,22 +267,26 @@ SELECT
 
 -- COMMAND ----------
 
-CREATE OR REFRESH LIVE TABLE dim_outcome (
-  CONSTRAINT valid_outcome_key EXPECT (outcome_key IS NOT NULL),
-  CONSTRAINT valid_current_flag EXPECT (is_current IN (0, 1))
-)
-COMMENT "Outcome dimension with SCD Type 2 (stub - no outcome data in PCDM)"
+-- Source stream for outcome dimension (stub - no outcome data in PCDM)
+CREATE OR REFRESH STREAMING LIVE TABLE dim_outcome_source
+COMMENT "Source stream for outcome dimension changes (stub)"
 AS
 SELECT
-  0 as outcome_key,
   0 as outcome_id,
   'Unknown' as outcome_type,
   'Unknown' as outcome_description,
-  current_date() as effective_begin_date,
-  to_date('9999-12-31') as effective_end_date,
-  1 as is_current,
-  current_timestamp() as created_date,
-  current_timestamp() as last_modified_date;
+  current_timestamp() as updated_timestamp;
+
+-- COMMAND ----------
+
+-- Apply SCD Type 2 to dim_outcome
+CREATE OR REFRESH STREAMING LIVE TABLE dim_outcome;
+
+APPLY CHANGES INTO LIVE.dim_outcome
+FROM STREAM(LIVE.dim_outcome_source)
+KEYS (outcome_id)
+SEQUENCE BY updated_timestamp
+STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
 
@@ -287,16 +301,15 @@ SELECT
 -- COMMAND ----------
 
 CREATE OR REFRESH LIVE TABLE fact_premium_payments (
-  CONSTRAINT valid_policy_key EXPECT (policy_key IS NOT NULL),
+  CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
   CONSTRAINT valid_premium_amount EXPECT (premium_amount >= 0),
   CONSTRAINT valid_date_key EXPECT (transaction_date_key IS NOT NULL)
 )
-COMMENT "Premium payments fact table with SCD Type 2 dimension references"
+COMMENT "Premium payments fact table"
 AS
 SELECT
-  dp.policy_key,
-  dg.group_key,
-  COALESCE(dr.risk_key, 0) as risk_key,
+  pol.policy_id,
+  COALESCE(apr.party_id, 0) as group_id,
   CAST(date_format(pcd.effective_date, 'yyyyMMdd') AS INT) as transaction_date_key,
   CAST(date_format(pol.effective_date, 'yyyyMMdd') AS INT) as policy_effective_date_key,
   CAST(date_format(pol.expiration_date, 'yyyyMMdd') AS INT) as policy_expiration_date_key,
@@ -315,9 +328,8 @@ SELECT
   current_timestamp() as load_date
 FROM main.pcdm_test.policy_coverage_detail pcd
 JOIN main.pcdm_test.policy pol ON pcd.policy_id = pol.policy_id
-JOIN LIVE.dim_policy dp ON pol.policy_id = dp.policy_id AND dp.is_current = 1
-JOIN LIVE.dim_group dg ON dp.group_key = dg.group_key AND dg.is_current = 1
-LEFT JOIN LIVE.dim_risk dr ON pol.policy_id = dr.policy_id AND dr.is_current = 1
+JOIN main.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
+LEFT JOIN main.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
 JOIN main.pcdm_test.coverage cov ON pcd.coverage_id = cov.coverage_id
 LEFT JOIN main.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim.policy_coverage_detail_id
 LEFT JOIN main.pcdm_test.policy_deductible ded ON pcd.policy_coverage_detail_id = ded.policy_coverage_detail_id;
@@ -330,20 +342,19 @@ LEFT JOIN main.pcdm_test.policy_deductible ded ON pcd.policy_coverage_detail_id 
 -- COMMAND ----------
 
 CREATE OR REFRESH LIVE TABLE fact_claims (
-  CONSTRAINT valid_claim_key EXPECT (claim_key IS NOT NULL),
-  CONSTRAINT valid_policy_key EXPECT (policy_key IS NOT NULL),
+  CONSTRAINT valid_claim_id EXPECT (claim_id IS NOT NULL),
+  CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
   CONSTRAINT valid_date_key EXPECT (claim_date_key IS NOT NULL)
 )
-COMMENT "Claims fact table with SCD Type 2 dimension references"
+COMMENT "Claims fact table"
 AS
 SELECT
-  dc.claim_key,
-  dp.policy_key,
-  dg.group_key,
-  COALESCE(dr.risk_key, 0) as risk_key,
-  COALESCE(da.attorney_key, 0) as attorney_key,
-  COALESCE(dct.court_key, 0) as court_key,
-  COALESCE(do.outcome_key, 0) as outcome_key,
+  c.claim_id,
+  pol.policy_id,
+  COALESCE(apr.party_id, 0) as group_id,
+  0 as attorney_id,
+  0 as court_id,
+  0 as outcome_id,
   CAST(date_format(c.claim_open_date, 'yyyyMMdd') AS INT) as claim_date_key,
   CAST(date_format(c.claim_reported_date, 'yyyyMMdd') AS INT) as reported_date_key,
   CAST(date_format(COALESCE(c.claim_close_date, current_date()), 'yyyyMMdd') AS INT) as close_date_key,
@@ -376,18 +387,13 @@ SELECT
   datediff(c.claim_reported_date, c.claim_open_date) as report_lag_days,
   current_timestamp() as load_date
 FROM main.pcdm_test.claim c
-JOIN LIVE.dim_claim dc ON c.claim_id = dc.claim_id AND dc.is_current = 1
 JOIN main.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
 LEFT JOIN main.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id
 JOIN main.pcdm_test.claim_coverage cc ON c.claim_id = cc.claim_id
 JOIN main.pcdm_test.policy_coverage_detail pcd ON cc.policy_coverage_detail_id = pcd.policy_coverage_detail_id
 JOIN main.pcdm_test.policy pol ON pcd.policy_id = pol.policy_id
-JOIN LIVE.dim_policy dp ON pol.policy_id = dp.policy_id AND dp.is_current = 1
-JOIN LIVE.dim_group dg ON dp.group_key = dg.group_key AND dg.is_current = 1
-LEFT JOIN LIVE.dim_risk dr ON pol.policy_id = dr.policy_id AND dr.is_current = 1
-LEFT JOIN LIVE.dim_attorney da ON da.is_current = 1
-LEFT JOIN LIVE.dim_court dct ON dct.is_current = 1
-LEFT JOIN LIVE.dim_outcome do ON do.is_current = 1
+JOIN main.pcdm_test.agreement agr ON pol.agreement_id = agr.agreement_id
+LEFT JOIN main.pcdm_test.agreement_party_role apr ON agr.agreement_id = apr.agreement_id AND apr.party_role_code = 'GROUP'
 LEFT JOIN main.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim.policy_coverage_detail_id;
 
 -- COMMAND ----------
@@ -396,6 +402,8 @@ LEFT JOIN main.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_id = lim
 -- MAGIC ## Pipeline Complete
 -- MAGIC 
 -- MAGIC All dimension and fact tables have been created with:
--- MAGIC - SCD Type 2 for slowly changing dimensions
--- MAGIC - Data quality expectations
--- MAGIC - Proper foreign key relationships
+-- MAGIC - **SCD Type 2** using DLT's native `APPLY CHANGES INTO` with `STORED AS SCD TYPE 2`
+-- MAGIC - **Automatic surrogate keys** managed by DLT
+-- MAGIC - **Automatic tracking** of `__START_AT`, `__END_AT`, `__CURRENT` columns
+-- MAGIC - **Data quality expectations** on all tables
+-- MAGIC - **Streaming sources** for change data capture
