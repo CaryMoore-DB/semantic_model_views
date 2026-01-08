@@ -204,7 +204,11 @@ def generate_policy_data(spark):
                 })
                 
                 # Create structure
-                is_commercial = 'Commercial' in coverage_name
+                # Determine if commercial based on product name, coverage name, or specific commercial keywords
+                is_commercial = ('Commercial' in product_name or 
+                               'Business' in coverage_name or 
+                               'Building' in coverage_name or
+                               coverage_name in ['General Aggregate', 'Products/Completed Operations'])
                 
                 structures.append({
                     'structure_id': structure_id,
