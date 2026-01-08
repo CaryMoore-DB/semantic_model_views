@@ -52,34 +52,22 @@ FROM (
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ### dim_group - Group Dimension (SCD Type 2)
+-- MAGIC ### dim_group - Group Dimension (SCD Type 1)
 
 -- COMMAND ----------
 
--- Source stream for group dimension
-CREATE OR REFRESH STREAMING LIVE TABLE dim_group_source (
+-- dim_group - SCD Type 1 (no effective date in source tables)
+CREATE OR REFRESH LIVE TABLE dim_group (
   CONSTRAINT valid_group_id EXPECT (group_id IS NOT NULL)
 )
-COMMENT "Source stream for group dimension changes"
+COMMENT "Group dimension with SCD Type 1 - overwrites on change (no effective date in source)"
 AS
 SELECT
   g.grouping_id as group_id,
   p.party_name as group_name,
-  p.party_type_code as group_type,
-  current_timestamp() as updated_timestamp  -- No effective date in party/grouping tables
+  p.party_type_code as group_type
 FROM cmoore_user.pcdm_test.grouping g
 JOIN cmoore_user.pcdm_test.party p ON g.party_id = p.party_id;
-
--- COMMAND ----------
-
--- Apply SCD Type 2 to dim_group
-CREATE OR REFRESH STREAMING LIVE TABLE dim_group;
-
-APPLY CHANGES INTO LIVE.dim_group
-FROM STREAM(LIVE.dim_group_source)
-KEYS (group_id)
-SEQUENCE BY updated_timestamp
-STORED AS SCD TYPE 2;
 
 -- COMMAND ----------
 
@@ -205,88 +193,52 @@ STORED AS SCD TYPE 2;
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ### dim_attorney - Attorney Dimension (SCD Type 2)
+-- MAGIC ### dim_attorney - Attorney Dimension (Static stub)
 
 -- COMMAND ----------
 
--- Source stream for attorney dimension (stub - no attorney data in PCDM)
-CREATE OR REFRESH STREAMING LIVE TABLE dim_attorney_source
-COMMENT "Source stream for attorney dimension changes (stub)"
+-- dim_attorney - Static stub (no attorney data in PCDM)
+CREATE OR REFRESH LIVE TABLE dim_attorney
+COMMENT "Attorney dimension stub - static record"
 AS
 SELECT
   0 as attorney_id,
   'Unknown' as attorney_name,
   'Unknown' as law_firm,
-  'Unknown' as attorney_type,
-  current_timestamp() as updated_timestamp;
-
--- COMMAND ----------
-
--- Apply SCD Type 2 to dim_attorney
-CREATE OR REFRESH STREAMING LIVE TABLE dim_attorney;
-
-APPLY CHANGES INTO LIVE.dim_attorney
-FROM STREAM(LIVE.dim_attorney_source)
-KEYS (attorney_id)
-SEQUENCE BY updated_timestamp
-STORED AS SCD TYPE 2;
+  'Unknown' as attorney_type;
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ### dim_court - Court Dimension (SCD Type 2)
+-- MAGIC ### dim_court - Court Dimension (Static stub)
 
 -- COMMAND ----------
 
--- Source stream for court dimension (stub - no court data in PCDM)
-CREATE OR REFRESH STREAMING LIVE TABLE dim_court_source
-COMMENT "Source stream for court dimension changes (stub)"
+-- dim_court - Static stub (no court data in PCDM)
+CREATE OR REFRESH LIVE TABLE dim_court
+COMMENT "Court dimension stub - static record"
 AS
 SELECT
   0 as court_id,
   'Unknown' as court_name,
   'Unknown' as court_type,
-  'Unknown' as jurisdiction,
-  current_timestamp() as updated_timestamp;
-
--- COMMAND ----------
-
--- Apply SCD Type 2 to dim_court
-CREATE OR REFRESH STREAMING LIVE TABLE dim_court;
-
-APPLY CHANGES INTO LIVE.dim_court
-FROM STREAM(LIVE.dim_court_source)
-KEYS (court_id)
-SEQUENCE BY updated_timestamp
-STORED AS SCD TYPE 2;
+  'Unknown' as jurisdiction;
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ### dim_outcome - Outcome Dimension (SCD Type 2)
+-- MAGIC ### dim_outcome - Outcome Dimension (Static stub)
 
 -- COMMAND ----------
 
--- Source stream for outcome dimension (stub - no outcome data in PCDM)
-CREATE OR REFRESH STREAMING LIVE TABLE dim_outcome_source
-COMMENT "Source stream for outcome dimension changes (stub)"
+-- dim_outcome - Static stub (no outcome data in PCDM)
+CREATE OR REFRESH LIVE TABLE dim_outcome
+COMMENT "Outcome dimension stub - static record"
 AS
 SELECT
   0 as outcome_id,
   'Unknown' as outcome_type,
-  'Unknown' as outcome_description,
-  current_timestamp() as updated_timestamp;
-
--- COMMAND ----------
-
--- Apply SCD Type 2 to dim_outcome
-CREATE OR REFRESH STREAMING LIVE TABLE dim_outcome;
-
-APPLY CHANGES INTO LIVE.dim_outcome
-FROM STREAM(LIVE.dim_outcome_source)
-KEYS (outcome_id)
-SEQUENCE BY updated_timestamp
-STORED AS SCD TYPE 2;
+  'Unknown' as outcome_description;
 
 -- COMMAND ----------
 
@@ -402,8 +354,9 @@ LEFT JOIN cmoore_user.pcdm_test.policy_limit lim ON pcd.policy_coverage_detail_i
 -- MAGIC ## Pipeline Complete
 -- MAGIC 
 -- MAGIC All dimension and fact tables have been created with:
--- MAGIC - **SCD Type 2** using DLT's native `APPLY CHANGES INTO` with `STORED AS SCD TYPE 2`
--- MAGIC - **Automatic surrogate keys** managed by DLT
--- MAGIC - **Automatic tracking** of `__START_AT`, `__END_AT`, `__CURRENT` columns
+-- MAGIC - **SCD Type 2** for dimensions with business effective dates (policy, risk, claim)
+-- MAGIC - **SCD Type 1** for dimensions without effective dates (group) - simple overwrite
+-- MAGIC - **Static tables** for stub dimensions (attorney, court, outcome)
+-- MAGIC - **Automatic tracking** of `__START_AT`, `__END_AT`, `__CURRENT` for SCD Type 2 tables
 -- MAGIC - **Data quality expectations** on all tables
--- MAGIC - **Streaming sources** for change data capture
+-- MAGIC - **Business date sequencing** for proper historical tracking
