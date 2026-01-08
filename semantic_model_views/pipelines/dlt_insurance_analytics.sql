@@ -21,7 +21,7 @@
 -- dim_date - Date Dimension (Type 1 - Static)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REFRESH LIVE TABLE dim_date (
+CREATE OR REFRESH MATERIALIZED VIEW dim_date (
   CONSTRAINT valid_date_key EXPECT (date_key IS NOT NULL),
   CONSTRAINT valid_full_date EXPECT (full_date IS NOT NULL)
 )
@@ -54,7 +54,7 @@ FROM (
 -- ----------------------------------------------------------------------------
 
 -- Source stream for group dimension
-CREATE OR REFRESH STREAMING LIVE TABLE dim_group_source (
+CREATE OR REFRESH STREAMING TABLE dim_group_source (
   CONSTRAINT valid_group_id EXPECT (group_id IS NOT NULL)
 )
 COMMENT "Source stream for group dimension changes"
@@ -74,7 +74,7 @@ FROM cmoore_user.pcdm_test.grouping g
 JOIN cmoore_user.pcdm_test.party p ON g.party_id = p.party_id;
 
 -- Apply changes with SCD Type 1 (upsert without history)
-CREATE OR REFRESH STREAMING LIVE TABLE dim_group;
+CREATE OR REFRESH STREAMING TABLE dim_group;
 
 APPLY CHANGES INTO dim_group
 FROM STREAM(LIVE.dim_group_source)
@@ -86,7 +86,7 @@ KEYS (group_id);
 -- ----------------------------------------------------------------------------
 
 -- Source stream for policy dimension
-CREATE OR REFRESH STREAMING LIVE TABLE dim_policy_source (
+CREATE OR REFRESH STREAMING TABLE dim_policy_source (
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
   CONSTRAINT valid_policy_number EXPECT (policy_number IS NOT NULL),
   CONSTRAINT valid_effective_date EXPECT (effective_date IS NOT NULL),
@@ -121,7 +121,7 @@ JOIN cmoore_user.pcdm_test.insurance_class ic ON lob.insurance_class_id = ic.ins
 LEFT JOIN cmoore_user.pcdm_test.company comp ON comp.company_id = 1;
 
 -- Apply SCD Type 2 to dim_policy
-CREATE OR REFRESH STREAMING LIVE TABLE dim_policy;
+CREATE OR REFRESH STREAMING TABLE dim_policy;
 
 APPLY CHANGES INTO dim_policy
 FROM STREAM(LIVE.dim_policy_source)
@@ -136,7 +136,7 @@ STORED AS SCD TYPE 2;
 -- ----------------------------------------------------------------------------
 
 -- Source stream for risk dimension
-CREATE OR REFRESH STREAMING LIVE TABLE dim_risk_source (
+CREATE OR REFRESH STREAMING TABLE dim_risk_source (
   CONSTRAINT valid_risk_id EXPECT (risk_id IS NOT NULL),
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL)
 )
@@ -175,7 +175,7 @@ LEFT JOIN cmoore_user.pcdm_test.commercial_structure cs ON s.structure_id = cs.s
 LEFT JOIN cmoore_user.pcdm_test.residential_structure rs ON s.structure_id = rs.structure_id;
 
 -- Apply SCD Type 2 to dim_risk
-CREATE OR REFRESH STREAMING LIVE TABLE dim_risk;
+CREATE OR REFRESH STREAMING TABLE dim_risk;
 
 APPLY CHANGES INTO dim_risk
 FROM STREAM(LIVE.dim_risk_source)
@@ -188,7 +188,7 @@ STORED AS SCD TYPE 2;
 -- ----------------------------------------------------------------------------
 
 -- Source stream for claim dimension
-CREATE OR REFRESH STREAMING LIVE TABLE dim_claim_source (
+CREATE OR REFRESH STREAMING TABLE dim_claim_source (
   CONSTRAINT valid_claim_id EXPECT (claim_id IS NOT NULL),
   CONSTRAINT valid_claim_number EXPECT (claim_number IS NOT NULL),
   CONSTRAINT valid_claim_reported_date EXPECT (claim_reported_date IS NOT NULL)
@@ -213,7 +213,7 @@ JOIN cmoore_user.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
 LEFT JOIN cmoore_user.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id;
 
 -- Apply SCD Type 2 to dim_claim
-CREATE OR REFRESH STREAMING LIVE TABLE dim_claim;
+CREATE OR REFRESH STREAMING TABLE dim_claim;
 
 APPLY CHANGES INTO dim_claim
 FROM STREAM(LIVE.dim_claim_source)
@@ -225,7 +225,7 @@ STORED AS SCD TYPE 2;
 -- dim_attorney - Attorney Dimension (Static stub)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REFRESH LIVE TABLE dim_attorney
+CREATE OR REFRESH MATERIALIZED VIEW dim_attorney
 COMMENT "Attorney dimension stub - static record"
 AS
 SELECT
@@ -238,7 +238,7 @@ SELECT
 -- dim_court - Court Dimension (Static stub)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REFRESH LIVE TABLE dim_court
+CREATE OR REFRESH MATERIALIZED VIEW dim_court
 COMMENT "Court dimension stub - static record"
 AS
 SELECT
@@ -251,7 +251,7 @@ SELECT
 -- dim_outcome - Outcome Dimension (Static stub)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REFRESH LIVE TABLE dim_outcome
+CREATE OR REFRESH MATERIALIZED VIEW dim_outcome
 COMMENT "Outcome dimension stub - static record"
 AS
 SELECT
@@ -268,7 +268,7 @@ SELECT
 -- Group resolved through party_relationship
 -- ----------------------------------------------------------------------------
 
-CREATE OR REFRESH LIVE TABLE fact_premium_payments (
+CREATE OR REFRESH MATERIALIZED VIEW fact_premium_payments (
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
   CONSTRAINT valid_risk_id EXPECT (risk_id IS NOT NULL),
   CONSTRAINT valid_premium_amount EXPECT (premium_amount >= 0),
@@ -313,7 +313,7 @@ LEFT JOIN cmoore_user.pcdm_test.policy_deductible ded ON pcd.policy_coverage_det
 -- Group resolved through party_relationship
 -- ----------------------------------------------------------------------------
 
-CREATE OR REFRESH LIVE TABLE fact_claims (
+CREATE OR REFRESH MATERIALIZED VIEW fact_claims (
   CONSTRAINT valid_claim_id EXPECT (claim_id IS NOT NULL),
   CONSTRAINT valid_policy_id EXPECT (policy_id IS NOT NULL),
   CONSTRAINT valid_risk_id EXPECT (risk_id IS NOT NULL),
