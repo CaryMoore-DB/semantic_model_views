@@ -2,7 +2,7 @@
 -- dim_outcome DDL - Legal Outcome Dimension (SCD Type 2)
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_outcome (
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.dim_outcome') (
   -- Surrogate Key
   outcome_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
@@ -45,6 +45,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Legal Outcome Dimension - SCD Type 2. Tracks litigation and arbitration outcomes.';

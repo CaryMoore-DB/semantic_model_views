@@ -1,4 +1,4 @@
--- =====================================================
+:param_1 -- =====================================================
 -- dim_policy DDL - Policy Dimension (SCD Type 2)
 -- =====================================================
 -- Policies are the middle level of the hierarchy:
@@ -7,7 +7,7 @@
 -- Links to Group via group_key
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_policy (
+CREATE TABLE IF NOT EXISTS IDENTIFIER(:catalog || '.' || :schema || '.dim_policy') (
   -- Surrogate Key
   policy_sk BIGINT GENERATED ALWAYS AS IDENTITY,
   
@@ -76,6 +76,7 @@ USING DELTA
 TBLPROPERTIES (
   'delta.enableChangeDataFeed' = 'true',
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Policy Dimension - SCD Type 2. Middle level of hierarchy: Group -> Policy -> Risk';

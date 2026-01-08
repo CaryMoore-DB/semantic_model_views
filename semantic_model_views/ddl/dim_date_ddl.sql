@@ -5,7 +5,7 @@
 -- Covers range from 2000-01-01 to 2050-12-31
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_date (
+CREATE TABLE IF NOT EXISTS IDENTIFIER( :catalog || '.' || :schema || '.dim_date') (
   -- Natural Key
   date_key DATE NOT NULL,
   
@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS ${catalog}.${schema}.dim_date (
 USING DELTA
 TBLPROPERTIES (
   'delta.autoOptimize.optimizeWrite' = 'true',
-  'delta.autoOptimize.autoCompact' = 'true'
+  'delta.autoOptimize.autoCompact' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported'
 )
 COMMENT 'Date Dimension - Type 1 (Static). Contains all dates from 2000 to 2050.';
