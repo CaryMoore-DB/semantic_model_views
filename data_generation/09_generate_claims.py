@@ -16,6 +16,16 @@ from utils import *
 
 # COMMAND ----------
 
+def to_date(value):
+    """Convert datetime or date to date object, or return None"""
+    if value is None:
+        return None
+    if hasattr(value, 'date'):
+        return value.date()
+    return value
+
+# COMMAND ----------
+
 def load_existing_data(spark, catalog, schema):
     """Load existing reference data"""
     print("Loading existing data...")
@@ -95,9 +105,6 @@ def generate_claim_data(spark):
             DATE_RANGES['occurrence_start_date'],
             DATE_RANGES['occurrence_end_date']
         )
-        # Convert to date if it's a datetime
-        if hasattr(occurrence_date, 'date'):
-            occurrence_date = occurrence_date.date()
         
         # Some occurrences are catastrophic
         is_cat = random.random() < BUSINESS_RULES['catastrophe_probability']
@@ -121,9 +128,9 @@ def generate_claim_data(spark):
             'occurrence_id': occurrence_id,
             'catastrophic_event_indicator': 1 if is_cat else 0,
             'geographic_location_id': geographic_location_id,
-            'occurrence_begin_date': occurrence_date,
+            'occurrence_begin_date': to_date(occurrence_date),
             'occurrence_begin_time': begin_time_str,
-            'occurrence_end_date': occurrence_date,
+            'occurrence_end_date': to_date(occurrence_date),
             'occurrence_end_time': end_time_str,
         })
         
@@ -192,11 +199,11 @@ def generate_claim_data(spark):
             'catastrophe_id': catastrophe_id,
             'company_claim_number': generate_claim_number(),
             'claim_description': fake.sentence(),
-            'claim_open_date': claim_open_date,
-            'claim_close_date': claim_close_date,
+            'claim_open_date': to_date(claim_open_date),
+            'claim_close_date': to_date(claim_close_date),
             'claim_reopen_date': None,
             'claim_status_code': claim_status,
-            'claim_reported_date': claim_reported_date,
+            'claim_reported_date': to_date(claim_reported_date),
             'claims_made_date': None,
             'entry_in_to_claims_made_program_date': None,
         })
@@ -216,9 +223,9 @@ def generate_claim_data(spark):
         claim_party_roles.append({
             'claim_party_role_id': id_gen.next_id('claim_party_role'),
             'party_role_code': 'CLAIMANT',
-            'begin_date': claim_open_date,
+            'begin_date': to_date(claim_open_date),
             'party_id': claimant_party_id,
-            'end_date': claim_close_date,
+            'end_date': to_date(claim_close_date),
         })
         
         if i % 500 == 0:
