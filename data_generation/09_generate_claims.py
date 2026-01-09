@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 """
@@ -12,7 +13,7 @@ Creates: occurrence, catastrophe, claim, claim_coverage, claim_party_role
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DateType
 from config import *
-from utils import save_to_table_with_schema, print_progress, random_date, add_days, generate_claim_number, should_claim_close, id_gen, fake
+from utils import *
 
 # COMMAND ----------
 
