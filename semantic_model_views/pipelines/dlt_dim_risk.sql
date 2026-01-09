@@ -35,8 +35,8 @@ SELECT
   END as structure_type,
   io.geographic_location_id as risk_location_id,
   pcd.effective_date
-FROM cmoore_user.pcdm_test.policy_coverage_detail pcd
-JOIN cmoore_user.pcdm_test.coverage cov ON pcd.coverage_id = cov.coverage_id
+FROM STREAM(cmoore_user.pcdm_test.policy_coverage_detail) pcd
+JOIN STREAM(cmoore_user.pcdm_test.coverage) cov ON pcd.coverage_id = cov.coverage_id
 LEFT JOIN cmoore_user.pcdm_test.insurable_object io ON pcd.insurable_object_id = io.insurable_object_id
 LEFT JOIN cmoore_user.pcdm_test.vehicle v ON io.insurable_object_id = v.insurable_object_id
 LEFT JOIN cmoore_user.pcdm_test.structure s ON io.insurable_object_id = s.insurable_object_id
