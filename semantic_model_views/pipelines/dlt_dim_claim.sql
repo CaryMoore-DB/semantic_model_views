@@ -23,8 +23,8 @@ SELECT
   cat.catastrophe_name,
   occ.occurrence_begin_date as occurrence_date,
   occ.geographic_location_id as occurrence_location_id
-FROM cmoore_user.pcdm_test.claim c
-JOIN cmoore_user.pcdm_test.occurrence occ ON c.occurrence_id = occ.occurrence_id
+FROM STREAM(cmoore_user.pcdm_test.claim) c
+JOIN STREAM(cmoore_user.pcdm_test.occurrence) occ ON c.occurrence_id = occ.occurrence_id
 LEFT JOIN cmoore_user.pcdm_test.catastrophe cat ON c.catastrophe_id = cat.catastrophe_id;
 
 -- Apply SCD Type 2 to dim_claim
