@@ -150,6 +150,19 @@ def save_to_table(spark, df, table_name, catalog, schema, mode='overwrite'):
     return spark_df
 
 
+def save_to_table_with_schema(spark, data_list, table_name, catalog, schema_name, spark_schema, mode='overwrite'):
+    """Save data to Databricks table with explicit Spark schema"""
+    if not data_list:
+        print(f"⚠ No data to save for {table_name}")
+        return None
+    
+    spark_df = spark.createDataFrame(data_list, schema=spark_schema)
+    full_table_name = f"{catalog}.{schema_name}.{table_name}"
+    spark_df.write.mode(mode).saveAsTable(full_table_name)
+    print(f"✓ Saved {len(data_list)} records to {full_table_name}")
+    return spark_df
+
+
 def print_progress(current, total, prefix='Progress'):
     """Print progress bar"""
     percent = int((current / total) * 100)

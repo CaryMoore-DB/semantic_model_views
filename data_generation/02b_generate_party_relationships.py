@@ -12,7 +12,7 @@ Creates: party_relationship linking policy holders to groups
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DateType
 from config import *
-from utils import *
+from utils import save_to_table_with_schema, random_date, id_gen
 import random
 
 # COMMAND ----------
@@ -71,22 +71,18 @@ def generate_party_relationships(spark):
     
     # 2. Save party_relationship table
     print(f"\n2. Saving party_relationship table ({len(party_relationships)} records)...")
-    if party_relationships:
-        # Define explicit schema to avoid type inference issues
-        schema_party_relationship = StructType([
-            StructField("party_relationship_id", IntegerType(), False),
-            StructField("party_id", IntegerType(), True),
-            StructField("related_party_id", IntegerType(), True),
-            StructField("relationship_type_code", StringType(), True),
-            StructField("begin_date", DateType(), True),
-            StructField("end_date", DateType(), True)
-        ])
-        
-        df_party_relationship = spark.createDataFrame(party_relationships, schema=schema_party_relationship)
-        df_party_relationship.write.mode("overwrite").saveAsTable(f"{catalog}.{schema}.party_relationship")
-        print(f"   ✓ Saved {len(party_relationships)} party relationships")
-    else:
-        print("   ⚠ No party relationships to save")
+    
+    # Define explicit schema to avoid type inference issues
+    schema_party_relationship = StructType([
+        StructField("party_relationship_id", IntegerType(), False),
+        StructField("party_id", IntegerType(), True),
+        StructField("related_party_id", IntegerType(), True),
+        StructField("relationship_type_code", StringType(), True),
+        StructField("begin_date", DateType(), True),
+        StructField("end_date", DateType(), True)
+    ])
+    
+    save_to_table_with_schema(spark, party_relationships, 'party_relationship', catalog, schema, schema_party_relationship)
     
     print("\n" + "=" * 60)
     print("Party Relationship Generation Complete!")

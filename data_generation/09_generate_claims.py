@@ -12,7 +12,7 @@ Creates: occurrence, catastrophe, claim, claim_coverage, claim_party_role
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DateType
 from config import *
-from utils import *
+from utils import save_to_table_with_schema, print_progress, random_date, add_days, generate_claim_number, should_claim_close, id_gen, fake
 
 # COMMAND ----------
 
@@ -284,20 +284,11 @@ def generate_claim_data(spark):
         StructField("end_date", DateType(), True)  # Can be None
     ])
     
-    df_cat = spark.createDataFrame(catastrophes, schema=schema_catastrophe)
-    save_to_table(spark, df_cat, 'catastrophe', catalog, schema)
-    
-    df_occ = spark.createDataFrame(occurrences, schema=schema_occurrence)
-    save_to_table(spark, df_occ, 'occurrence', catalog, schema)
-    
-    df_claim = spark.createDataFrame(claims, schema=schema_claim)
-    save_to_table(spark, df_claim, 'claim', catalog, schema)
-    
-    df_cc = spark.createDataFrame(claim_coverages, schema=schema_claim_coverage)
-    save_to_table(spark, df_cc, 'claim_coverage', catalog, schema)
-    
-    df_cpr = spark.createDataFrame(claim_party_roles, schema=schema_claim_party_role)
-    save_to_table(spark, df_cpr, 'claim_party_role', catalog, schema)
+    save_to_table_with_schema(spark, catastrophes, 'catastrophe', catalog, schema, schema_catastrophe)
+    save_to_table_with_schema(spark, occurrences, 'occurrence', catalog, schema, schema_occurrence)
+    save_to_table_with_schema(spark, claims, 'claim', catalog, schema, schema_claim)
+    save_to_table_with_schema(spark, claim_coverages, 'claim_coverage', catalog, schema, schema_claim_coverage)
+    save_to_table_with_schema(spark, claim_party_roles, 'claim_party_role', catalog, schema, schema_claim_party_role)
     
     print("\n" + "=" * 60)
     print("Claim Data Generation Complete!")
