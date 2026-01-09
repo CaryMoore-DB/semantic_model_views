@@ -10,6 +10,7 @@ Creates: occurrence, catastrophe, claim, claim_coverage, claim_party_role
 # COMMAND ----------
 
 from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DateType
 from config import *
 from utils import *
 
@@ -228,32 +229,67 @@ def generate_claim_data(spark):
     # Save to tables
     print("\n\nSaving to Databricks tables...")
     
-    df_cat = create_dataframe(catastrophes,
-                              ['catastrophe_id', 'catastrophe_type_code', 'catastrophe_name',
-                               'industry_catastrophe_code', 'company_catastrophe_code'])
+    # Define explicit schemas to avoid void type inference issues
+    schema_catastrophe = StructType([
+        StructField("catastrophe_id", IntegerType(), False),
+        StructField("catastrophe_type_code", StringType(), True),
+        StructField("catastrophe_name", StringType(), True),
+        StructField("industry_catastrophe_code", StringType(), True),
+        StructField("company_catastrophe_code", StringType(), True)
+    ])
+    
+    schema_occurrence = StructType([
+        StructField("occurrence_id", IntegerType(), False),
+        StructField("catastrophic_event_indicator", IntegerType(), True),
+        StructField("geographic_location_id", IntegerType(), True),
+        StructField("occurrence_begin_date", DateType(), True),
+        StructField("occurrence_begin_time", StringType(), True),
+        StructField("occurrence_end_date", DateType(), True),
+        StructField("occurrence_end_time", StringType(), True)
+    ])
+    
+    schema_claim = StructType([
+        StructField("claim_id", IntegerType(), False),
+        StructField("occurrence_id", IntegerType(), True),
+        StructField("catastrophe_id", IntegerType(), True),  # Can be None
+        StructField("company_claim_number", StringType(), True),
+        StructField("claim_description", StringType(), True),
+        StructField("claim_open_date", DateType(), True),
+        StructField("claim_close_date", DateType(), True),  # Can be None
+        StructField("claim_reopen_date", DateType(), True),  # Can be None
+        StructField("claim_status_code", StringType(), True),
+        StructField("claim_reported_date", DateType(), True),
+        StructField("claims_made_date", DateType(), True),  # Can be None
+        StructField("entry_in_to_claims_made_program_date", DateType(), True)  # Can be None
+    ])
+    
+    schema_claim_coverage = StructType([
+        StructField("claim_coverage_id", IntegerType(), False),
+        StructField("claim_id", IntegerType(), True),
+        StructField("policy_coverage_detail_id", IntegerType(), True)
+    ])
+    
+    schema_claim_party_role = StructType([
+        StructField("claim_party_role_id", IntegerType(), False),
+        StructField("party_role_code", StringType(), True),
+        StructField("begin_date", DateType(), True),
+        StructField("party_id", IntegerType(), True),
+        StructField("end_date", DateType(), True)  # Can be None
+    ])
+    
+    df_cat = spark.createDataFrame(catastrophes, schema=schema_catastrophe)
     save_to_table(spark, df_cat, 'catastrophe', catalog, schema)
     
-    df_occ = create_dataframe(occurrences,
-                              ['occurrence_id', 'catastrophic_event_indicator',
-                               'geographic_location_id', 'occurrence_begin_date', 
-                               'occurrence_begin_time', 'occurrence_end_date', 'occurrence_end_time'])
+    df_occ = spark.createDataFrame(occurrences, schema=schema_occurrence)
     save_to_table(spark, df_occ, 'occurrence', catalog, schema)
     
-    df_claim = create_dataframe(claims,
-                                ['claim_id', 'occurrence_id', 'catastrophe_id',
-                                 'company_claim_number', 'claim_description',
-                                 'claim_open_date', 'claim_close_date', 'claim_reopen_date',
-                                 'claim_status_code', 'claim_reported_date', 'claims_made_date',
-                                 'entry_in_to_claims_made_program_date'])
+    df_claim = spark.createDataFrame(claims, schema=schema_claim)
     save_to_table(spark, df_claim, 'claim', catalog, schema)
     
-    df_cc = create_dataframe(claim_coverages,
-                             ['claim_coverage_id', 'claim_id', 'policy_coverage_detail_id'])
+    df_cc = spark.createDataFrame(claim_coverages, schema=schema_claim_coverage)
     save_to_table(spark, df_cc, 'claim_coverage', catalog, schema)
     
-    df_cpr = create_dataframe(claim_party_roles,
-                              ['claim_party_role_id', 'party_role_code', 'begin_date',
-                               'party_id', 'end_date'])
+    df_cpr = spark.createDataFrame(claim_party_roles, schema=schema_claim_party_role)
     save_to_table(spark, df_cpr, 'claim_party_role', catalog, schema)
     
     print("\n" + "=" * 60)
